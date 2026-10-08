@@ -91,7 +91,7 @@ El prototipo está construido siguiendo una guía de estilo basada en variables 
 * Se trasladó la gestión de **Base de Datos** desde el menú lateral hacia **Configuración**, con tarjeta de estadísticas (usuarios, equipos, snacks, sesiones) y acciones de copia de seguridad, restauración y restablecimiento de fábrica.
 
 ### 7. Historial de Ventas
-* Nueva sección **"🧾 Historial de Ventas"** en Configuración con **fecha, hora, productos vendidos y total**, además de un resumen de ventas y monto recaudado.
+* Nueva sección **" Historial de Ventas"** en Configuración con **fecha, hora, productos vendidos y total**, además de un resumen de ventas y monto recaudado.
 * Para poder registrar el detalle, se agregó la columna `detalle` a la tabla `sesiones_uso`, se actualizó el modelo `SesionUso` (`registrarVenta()` con ítems y `historialVentas()`) y el controlador `VentaController` (guarda el detalle y expone `GET /ventas`).
 
 
