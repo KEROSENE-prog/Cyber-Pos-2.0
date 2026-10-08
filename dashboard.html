@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoreo — CyberPOS Gaming</title>
+<meta name="description" content="Panel de monitoreo en tiempo real de equipos del cybercafé gaming.">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .notif-panel-wrapper {
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .notif-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,.2);
+  }
+  .notif-panel-header h3 {
+    font-size: 1rem;
+    color: var(--text-main);
+  }
+  #panelNotificaciones {
+    padding: 12px 16px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .card-finished {
+    border-color: #991b1b !important;
+    animation: pulseRed 2s infinite;
+  }
+  #notifBadge {
+    background: #dc2626;
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 99px;
+    display: none;
+    margin-left: 6px;
+  }
+  .tarifa-display {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .equipo-meta {
+    font-size: .8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  #kpiIngresosBs {
+    font-size: .9rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ===== Neón en tarjetas de equipo ===== */
+  article.device-card.neon-on {
+    border-color: color-mix(in srgb, var(--brand-primary) 70%, transparent);
+    box-shadow:
+      0 0 8px color-mix(in srgb, var(--brand-primary) 45%, transparent),
+      0 0 18px color-mix(in srgb, var(--brand-primary) 25%, transparent);
+    animation: cardNeon 3s ease-in-out infinite;
+  }
+  article.device-card.neon-danger {
+    border-color: rgba(239, 68, 68, .8);
+    box-shadow:
+      0 0 8px rgba(239, 68, 68, .5),
+      0 0 20px rgba(239, 68, 68, .3);
+    animation: cardNeonDanger 1.6s ease-in-out infinite;
+  }
+  @keyframes cardNeon {
+    0%, 100% {
+      box-shadow:
+        0 0 7px color-mix(in srgb, var(--brand-primary) 38%, transparent),
+        0 0 15px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 13px color-mix(in srgb, var(--brand-primary) 65%, transparent),
+        0 0 28px color-mix(in srgb, var(--brand-primary) 35%, transparent);
+    }
+  }
+  @keyframes cardNeonDanger {
+    0%, 100% {
+      box-shadow:
+        0 0 8px rgba(239, 68, 68, .5),
+        0 0 16px rgba(239, 68, 68, .3);
+    }
+    50% {
+      box-shadow:
+        0 0 16px rgba(239, 68, 68, .8),
+        0 0 32px rgba(239, 68, 68, .45);
+    }
+  }
+
+  /* ===== Neón en la barra de tiempo de cada equipo ===== */
+  .pc-bar-track {
+    background: rgba(0,0,0,.35);
+    border-radius: 99px;
+    height: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--brand-primary) 65%, transparent);
+    box-shadow:
+      0 0 8px color-mix(in srgb, var(--brand-primary) 45%, transparent),
+      0 0 16px color-mix(in srgb, var(--brand-primary) 25%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--brand-primary) 18%, transparent);
+    animation: barNeon 2.8s ease-in-out infinite;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .pc-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .5s ease, background .3s;
+    box-shadow:
+      0 0 6px color-mix(in srgb, var(--brand-primary) 75%, transparent),
+      0 0 12px color-mix(in srgb, var(--brand-primary) 40%, transparent);
+  }
+  .pc-bar-track.danger {
+    border-color: rgba(239, 68, 68, .85);
+    animation: barNeonDanger 1.5s ease-in-out infinite;
+  }
+  .pc-bar-track.danger .pc-bar-fill {
+    box-shadow:
+      0 0 6px rgba(239, 68, 68, .7),
+      0 0 14px rgba(239, 68, 68, .45);
+  }
+  @keyframes barNeon {
+    0%, 100% {
+      box-shadow:
+        0 0 7px color-mix(in srgb, var(--brand-primary) 38%, transparent),
+        0 0 13px color-mix(in srgb, var(--brand-primary) 20%, transparent),
+        inset 0 0 7px color-mix(in srgb, var(--brand-primary) 15%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 13px color-mix(in srgb, var(--brand-primary) 65%, transparent),
+        0 0 26px color-mix(in srgb, var(--brand-primary) 35%, transparent),
+        inset 0 0 11px color-mix(in srgb, var(--brand-primary) 24%, transparent);
+    }
+  }
+  @keyframes barNeonDanger {
+    0%, 100% {
+      box-shadow:
+        0 0 8px rgba(239, 68, 68, .5),
+        0 0 16px rgba(239, 68, 68, .3),
+        inset 0 0 8px rgba(239, 68, 68, .25);
+    }
+    50% {
+      box-shadow:
+        0 0 15px rgba(239, 68, 68, .8),
+        0 0 30px rgba(239, 68, 68, .45),
+        inset 0 0 12px rgba(239, 68, 68, .35);
+    }
+  }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <header><h2>CyberPOS</h2></header>
+  <nav>
+    <a href="dashboard.html" class="active"><span>🖥️</span> Monitoreo</a>
+    <a href="crud.html"><span>🍔</span> Inventario</a>
+    <a href="ventas.html"><span>💰</span> Ventas</a>
+    <a href="configuracion.html"><span>⚙️</span> Configuración</a>
+    <a href="login.html"><span>🚪</span> Salir</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="topbar">
+    <button class="hamburger" id="menuBtn">☰</button>
+    <figure>
+      <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+      <figcaption>Admin User</figcaption>
+    </figure>
+  </header>
+
+  <section class="content">
+    <!-- KPIs -->
+    <section class="kpi-grid">
+      <article class="kpi-card">
+        <h3>💵 Ingresos del Día</h3>
+        <p id="kpiIngresos">$0.00</p>
+        <small id="kpiIngresosBs" style="color:var(--text-muted)">Bs. 0.00</small>
+      </article>
+      <article class="kpi-card">
+        <h3>🖥️ PCs Activas</h3>
+        <p id="kpiPCs">0</p>
+      </article>
+      <article class="kpi-card">
+        <h3>🎮 Consolas Activas</h3>
+        <p id="kpiConsolas">0</p>
+      </article>
+      <article class="kpi-card">
+        <h3>🔔 Pendientes <span id="notifBadge">0</span></h3>
+        <p id="kpiPedidos">0</p>
+      </article>
+    </section>
+
+    <!-- Panel de Notificaciones -->
+    <div class="notif-panel-wrapper">
+      <header class="notif-panel-header">
+        <h3>🔔 Solicitudes y Pedidos en Tiempo Real</h3>
+        <button type="button" class="secondary" id="btnRefreshNotif" style="padding:6px 12px;font-size:.82rem" onclick="actualizarNotificacionesAdmin()">↻ Actualizar</button>
+      </header>
+      <div id="panelNotificaciones">
+        <p style="color:var(--text-muted);text-align:center;padding:16px;font-size:.9rem">✅ Sin notificaciones pendientes</p>
+      </div>
+    </div>
+
+    <!-- Equipos -->
+    <header class="section-header">
+      <h2>Equipos en Tiempo Real</h2>
+      <button type="button" class="primary" id="btnNuevoEquipo" style="white-space:nowrap">+ Nuevo Equipo</button>
+    </header>
+    <section class="devices-grid" id="equiposGrid">
+      <p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:32px">Cargando equipos...</p>
+    </section>
+  </section>
+</main>
+
+<!-- Modal: Agregar/Modificar Tiempo -->
+<dialog id="modalTiempo">
+  <article class="modal-content">
+    <header class="modal-header">
+      <h3 id="modalTiempoTitle">Añadir Tiempo</h3>
+      <button class="close-modal">×</button>
+    </header>
+    <form onsubmit="event.preventDefault()">
+      <fieldset class="form-fields">
+        <p class="form-group">
+          <label for="inputClienteNombre">Nombre del Cliente</label>
+          <input type="text" id="inputClienteNombre" placeholder="Ej. Kelvin">
+        </p>
+        <p style="font-size:.85rem;color:var(--text-muted)">Selección rápida:</p>
+        <section style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
+          <button type="button" class="secondary preset-btn" data-min="30">30 min</button>
+          <button type="button" class="secondary preset-btn" data-min="60">1 hora</button>
+          <button type="button" class="secondary preset-btn" data-min="90">1.5 horas</button>
+          <button type="button" class="secondary preset-btn" data-min="120">2 horas</button>
+        </section>
+        <p class="form-group">
+          <label for="inputMinutos">Minutos personalizados</label>
+          <input type="number" id="inputMinutos" min="1" placeholder="Ej. 45" required>
+        </p>
+      </fieldset>
+      <footer class="modal-actions">
+        <button type="button" class="secondary">Cancelar</button>
+        <button type="submit" class="primary">Confirmar</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<!-- Modal: Nuevo Equipo -->
+<dialog id="modalNuevoEquipo">
+  <article class="modal-content">
+    <header class="modal-header">
+      <h3>➕ Agregar Nuevo Equipo</h3>
+      <button class="close-modal">×</button>
+    </header>
+    <form onsubmit="event.preventDefault()">
+      <fieldset class="form-fields">
+        <p class="form-group">
+          <label for="nuevoEquipoNombre">Nombre del Equipo</label>
+          <input type="text" id="nuevoEquipoNombre" placeholder="Ej. PC 07 / Consola 05" required>
+        </p>
+        <p class="form-group">
+          <label for="nuevoEquipoTipo">Tipo</label>
+          <select id="nuevoEquipoTipo" style="padding:10px;border-radius:6px;background:var(--bg-card);color:var(--text-main);border:1px solid var(--border-color);width:100%">
+            <option value="pc">PC</option>
+            <option value="consola">Consola</option>
+          </select>
+        </p>
+        <p class="form-group">
+          <label for="nuevoEquipoTarifa">Tarifa por Hora ($)</label>
+          <input type="number" id="nuevoEquipoTarifa" step="0.01" placeholder="1.50" value="1.50">
+        </p>
+      </fieldset>
+      <footer class="modal-actions">
+        <button type="button" class="secondary" onclick="document.getElementById('modalNuevoEquipo').close()">Cancelar</button>
+        <button type="submit" class="primary">Agregar Equipo</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+</script>
+<script src="js/api.js"></script>
+<script src="js/dashboard.js?v=2"></script>
+</body>
+</html>

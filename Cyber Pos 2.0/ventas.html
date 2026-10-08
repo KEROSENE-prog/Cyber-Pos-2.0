@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ventas — CyberPOS Gaming</title>
+<meta name="description" content="Módulo de punto de venta para snacks y productos del cybercafé gaming.">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .ventas-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  @media (min-width: 900px) {
+    .ventas-layout {
+      grid-template-columns: 1fr 360px;
+    }
+  }
+  .carrito-ventas {
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .carrito-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,.2);
+  }
+  .carrito-header h3 {
+    font-size: 1.05rem;
+  }
+  #ventasCarritoLista {
+    list-style: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+  }
+  .resumen-venta {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+    background: rgba(0,0,0,.15);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .resumen-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .9rem;
+  }
+  .resumen-row.total {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--brand-primary);
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+  .resumen-bs {
+    font-size: .78rem;
+    color: #64748b;
+    text-align: right;
+    margin-top: -4px;
+  }
+  .ticket-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+  }
+  .ticket-table th {
+    text-align: left;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: .8rem;
+  }
+  .ticket-table td {
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .ticket-totales {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ticket-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .9rem;
+  }
+  .ticket-row.final {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--brand-primary);
+    border-top: 2px solid var(--brand-primary);
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+  .ticket-bs {
+    font-size: .82rem;
+    color: #64748b;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <header><h2>CyberPOS</h2></header>
+  <nav>
+    <a href="dashboard.html"><span>🖥️</span> Monitoreo</a>
+    <a href="crud.html"><span>🍔</span> Inventario</a>
+    <a href="ventas.html" class="active"><span>💰</span> Ventas</a>
+    <a href="configuracion.html"><span>⚙️</span> Configuración</a>
+    <a href="login.html"><span>🚪</span> Salir</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="topbar">
+    <button class="hamburger" id="menuBtn">☰</button>
+    <figure>
+      <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+      <figcaption>Admin User</figcaption>
+    </figure>
+  </header>
+
+  <section class="content">
+    <header class="section-header">
+      <h2>💰 Punto de Venta</h2>
+      <form class="toolbar" onsubmit="event.preventDefault()">
+        <fieldset class="search-bar">
+          <input type="text" id="searchVentas" placeholder="Buscar producto...">
+        </fieldset>
+      </form>
+    </header>
+
+    <div class="ventas-layout">
+      <!-- Catálogo -->
+      <section>
+        <section class="snacks-grid" id="ventasGrid">
+          <p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:32px">Cargando productos...</p>
+        </section>
+      </section>
+
+      <!-- Carrito + Resumen -->
+      <aside class="carrito-ventas">
+        <header class="carrito-header">
+          <h3>🛒 Carrito de Venta</h3>
+          <p style="font-size:.8rem;color:var(--text-muted);margin-top:4px">Selecciona productos del catálogo</p>
+        </header>
+        <ul id="ventasCarritoLista">
+          <li style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:.9rem">El carrito está vacío.<br>Selecciona productos del catálogo.</li>
+        </ul>
+        <div class="resumen-venta">
+          <div class="resumen-row">
+            <span>Subtotal:</span>
+            <strong id="ventaSubtotal">$0.00</strong>
+          </div>
+          <div class="resumen-row">
+            <span>IVA (16%):</span>
+            <strong id="ventaImpuesto">$0.00</strong>
+          </div>
+          <div class="resumen-row total">
+            <span>TOTAL:</span>
+            <strong id="ventaTotal">$0.00</strong>
+          </div>
+          <p class="resumen-bs" id="ventaTotalBs">Bs. 0.00</p>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button type="button" class="secondary" id="btnVaciarCarrito" style="flex:1;font-size:.85rem;padding:8px">🗑 Vaciar</button>
+            <button type="button" class="primary" id="btnFinalizarVenta" style="flex:2" disabled>✅ Finalizar Venta</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<!-- Modal Ticket -->
+<dialog id="modalTicket">
+  <article class="modal-content" style="max-width:480px">
+    <header class="modal-header">
+      <h3>🧾 Ticket de Venta</h3>
+      <button class="close-modal" id="btnCerrarTicket">×</button>
+    </header>
+    <section style="padding:4px 0 16px">
+      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+        🏪 <strong>CyberPOS Laneros Gamer</strong><br>
+        <small id="ticketFecha"></small>
+      </p>
+      <table class="ticket-table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th style="text-align:center">Cant.</th>
+            <th style="text-align:right">Precio</th>
+            <th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="ticketItems"></tbody>
+      </table>
+      <div class="ticket-totales">
+        <div class="ticket-row"><span>Subtotal:</span><strong id="ticketSubtotal">$0.00</strong></div>
+        <div class="ticket-row"><span>IVA (16%):</span><strong id="ticketImpuesto">$0.00</strong></div>
+        <div class="ticket-row final"><span>TOTAL:</span><strong id="ticketTotal">$0.00</strong></div>
+        <p class="ticket-bs" id="ticketTotalBs">Bs. 0.00</p>
+      </div>
+    </section>
+    <footer class="modal-actions">
+      <button type="button" class="secondary" id="btnNuevaVenta">+ Nueva Venta</button>
+      <button type="button" class="primary" onclick="window.print()">🖨️ Imprimir</button>
+    </footer>
+  </article>
+</dialog>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+</script>
+<script src="js/api.js"></script>
+<script src="js/ventas.js"></script>
+</body>
+</html>

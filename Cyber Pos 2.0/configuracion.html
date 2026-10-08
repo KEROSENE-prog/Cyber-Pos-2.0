@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración — CyberPOS Gaming</title>
+<meta name="description" content="Panel de configuración: perfil, tema de color y tasa BCV.">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  @media (min-width: 860px) {
+    .config-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .config-card.full-width {
+      grid-column: 1 / -1;
+    }
+  }
+  .config-card {
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+  .config-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,.2);
+  }
+  .config-card-header h3 {
+    font-size: 1rem;
+    margin-bottom: 2px;
+  }
+  .config-card-header p {
+    font-size: .82rem;
+    color: var(--text-muted);
+  }
+  .config-card-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .avatar-preview-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  #previewAvatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--brand-primary);
+  }
+  .color-presets-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  #colorPreview {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    border: 3px solid rgba(255,255,255,.2);
+    display: inline-block;
+    transition: background .2s;
+  }
+  .tasa-display {
+    background: rgba(0,0,0,.25);
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    font-size: .88rem;
+  }
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: .9rem;
+    font-weight: 600;
+    user-select: none;
+  }
+  .toggle-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--brand-primary);
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <header><h2>CyberPOS</h2></header>
+  <nav>
+    <a href="dashboard.html"><span>🖥️</span> Monitoreo</a>
+    <a href="crud.html"><span>🍔</span> Inventario</a>
+    <a href="ventas.html"><span>💰</span> Ventas</a>
+    <a href="configuracion.html" class="active"><span>⚙️</span> Configuración</a>
+    <a href="login.html"><span>🚪</span> Salir</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="topbar">
+    <button class="hamburger" id="menuBtn">☰</button>
+    <figure>
+      <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+      <figcaption>Admin User</figcaption>
+    </figure>
+  </header>
+
+  <section class="content">
+    <header class="section-header" style="margin-bottom:28px">
+      <h2>⚙️ Configuración del Sistema</h2>
+    </header>
+
+    <div class="config-grid">
+
+      <!-- PERFIL -->
+      <div class="config-card">
+        <div class="config-card-header">
+          <h3>👤 Perfil de Administrador</h3>
+          <p>Cambia tu nombre, avatar y contraseña</p>
+        </div>
+        <div class="config-card-body">
+          <form id="formPerfil" onsubmit="event.preventDefault()">
+            <div class="avatar-preview-wrapper">
+              <img id="previewAvatar" src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+              <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+                <label for="configAvatarFile" style="cursor:pointer;background:rgba(255,255,255,.08);padding:8px 12px;border-radius:6px;border:1px dashed var(--border-color);font-size:.85rem;text-align:center">
+                  📁 Subir imagen de perfil
+                  <input type="file" id="configAvatarFile" accept="image/*" style="display:none">
+                </label>
+                <span style="font-size:.75rem;color:var(--text-muted);text-align:center">o pega una URL abajo</span>
+              </div>
+            </div>
+            <fieldset class="form-fields" style="margin-bottom:0">
+              <p class="form-group">
+                <label for="configAvatarUrl">URL del Avatar</label>
+                <input type="url" id="configAvatarUrl" placeholder="https://...">
+              </p>
+              <p class="form-group">
+                <label for="configNombre">Nombre Completo</label>
+                <input type="text" id="configNombre" placeholder="Tu nombre">
+              </p>
+              <p class="form-group">
+                <label for="configPassword">Nueva Contraseña (opcional)</label>
+                <input type="password" id="configPassword" placeholder="Mínimo 6 caracteres">
+              </p>
+              <p class="form-group">
+                <label for="configPassword2">Confirmar Contraseña</label>
+                <input type="password" id="configPassword2" placeholder="Repite la contraseña">
+              </p>
+            </fieldset>
+            <footer class="modal-actions" style="margin-top:16px">
+              <button type="submit" class="primary" style="width:100%">💾 Guardar Perfil</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+
+      <!-- TASA BCV -->
+      <div class="config-card">
+        <div class="config-card-header">
+          <h3>💱 Tasa BCV (Bolívares)</h3>
+          <p>Configura la tasa cambiaria USD → VES</p>
+        </div>
+        <div class="config-card-body">
+          <div class="tasa-display" id="tasaActualDisplay">
+            <strong>Bs. 36.85</strong> · <small style="color:var(--text-muted)">Cargando...</small>
+          </div>
+          <button type="button" class="secondary" id="btnActualizarTasaAPI">🔄 Actualizar desde API BCV</button>
+          <form id="formTasa" onsubmit="event.preventDefault()">
+            <fieldset class="form-fields" style="margin-bottom:0">
+              <label class="toggle-label">
+                <input type="checkbox" id="configTasaManual">
+                Ingresar tasa manualmente
+              </label>
+              <p class="form-group">
+                <label for="configTasa">Tasa Bs/USD</label>
+                <input type="number" id="configTasa" step="0.01" min="0.01" placeholder="36.85" disabled>
+              </p>
+            </fieldset>
+            <footer class="modal-actions" style="margin-top:16px">
+              <button type="submit" class="primary" style="width:100%">💾 Guardar Tasa</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+
+      <!-- TEMA / COLOR -->
+      <div class="config-card full-width">
+        <div class="config-card-header">
+          <h3>🎨 Tema y Personalización</h3>
+          <p>Elige el color principal de la interfaz</p>
+        </div>
+        <div class="config-card-body">
+          <form id="formTema" onsubmit="event.preventDefault()">
+            <fieldset class="form-fields" style="margin-bottom:0">
+              <p class="form-group">
+                <label>Color Principal — Presets</label>
+                <div class="color-presets-row" id="colorPresets"></div>
+              </p>
+              <p class="form-group">
+                <label for="configColor">Color personalizado</label>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span id="colorPreview"></span>
+                  <input type="color" id="configColor" value="#35c029" style="width:48px;height:40px;padding:2px;border-radius:6px;cursor:pointer;background:none;border:1px solid var(--border-color)">
+                  <span style="font-size:.85rem;color:var(--text-muted)">Selecciona cualquier color</span>
+                </div>
+              </p>
+              <p class="form-group">
+                <label for="configNombreCyber">Nombre del Negocio</label>
+                <input type="text" id="configNombreCyber" placeholder="CyberPOS Laneros Gamer">
+              </p>
+            </fieldset>
+            <footer class="modal-actions" style="margin-top:16px">
+              <button type="submit" class="primary">🎨 Aplicar Tema</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+
+      <!-- HISTORIAL DE VENTAS -->
+      <div class="config-card full-width">
+        <div class="config-card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <h3>🧾 Historial de Ventas</h3>
+            <p>Fecha, hora, productos vendidos y total</p>
+          </div>
+          <button type="button" class="secondary" id="btnRecargarVentas">🔄 Actualizar</button>
+        </div>
+        <div class="config-card-body">
+          <div id="ventasResumen" style="display:flex;gap:24px;flex-wrap:wrap;font-size:.9rem;color:var(--text-muted)"></div>
+          <div style="overflow-x:auto">
+            <table id="tablaVentas" style="width:100%;border-collapse:collapse;font-size:.88rem">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--border-color)">
+                  <th style="padding:10px 8px">Fecha</th>
+                  <th style="padding:10px 8px">Hora</th>
+                  <th style="padding:10px 8px">Productos</th>
+                  <th style="padding:10px 8px;text-align:right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="ventasBody">
+                <tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text-muted)">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BASE DE DATOS -->
+      <div class="config-card full-width">
+        <div class="config-card-header">
+          <h3>💾 Base de Datos</h3>
+          <p>Copia de seguridad, restauración y datos del sistema</p>
+        </div>
+        <div class="config-card-body">
+          <p style="color:var(--text-muted);font-size:.9rem">El sistema guarda los datos en la base de datos <strong>MySQL/MariaDB</strong> mediante el backend PHP.</p>
+          <div id="dbStatsContainer" style="background:rgba(0,0,0,.3);padding:14px;border-radius:8px;border:1px solid var(--border-color);display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+            <div><strong>Usuarios:</strong> <span id="statUsuarios">0</span></div>
+            <div><strong>Equipos:</strong>  <span id="statEquipos">0</span></div>
+            <div><strong>Snacks:</strong>   <span id="statSnacks">0</span></div>
+            <div><strong>Sesiones:</strong> <span id="statSesiones">0</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="primary" id="btnExportarDB">📥 Descargar Copia de Seguridad (JSON)</button>
+            <label class="button secondary" style="cursor:pointer;text-align:center;display:inline-flex;justify-content:center;align-items:center;padding:10px 16px;border-radius:6px;border:1px solid var(--brand-secondary)">
+              📤 Restaurar Copia de Seguridad
+              <input type="file" id="fileImportarDB" accept=".json" style="display:none">
+            </label>
+            <button type="button" class="danger" id="btnResetearDB">⚠️ Restablecer Datos de Fábrica</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+</script>
+<script src="js/api.js"></script>
+<script src="js/configuracion.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Estación — CyberPOS Gaming</title>
+<meta name="description" content="Vista del cliente: tiempo restante, solicitud de tiempo y pedidos de snacks.">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .client-hero-card {
+    background: linear-gradient(145deg, var(--bg-card), #1a1a22);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    padding: 28px 24px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .client-timer-display {
+    font-family: 'Outfit', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: var(--brand-primary);
+    display: inline-block;
+    letter-spacing: 0.05em;
+    margin: 12px 0;
+    padding: 8px 32px;
+    border-radius: 16px;
+    border: 2px solid color-mix(in srgb, var(--brand-primary) 65%, transparent);
+    box-shadow:
+      0 0 8px color-mix(in srgb, var(--brand-primary) 45%, transparent),
+      0 0 18px color-mix(in srgb, var(--brand-primary) 22%, transparent),
+      inset 0 0 12px color-mix(in srgb, var(--brand-primary) 14%, transparent);
+    animation: neonBreath 2.8s ease-in-out infinite;
+    transition: color .3s, border-color .3s;
+  }
+  @keyframes neonBreath {
+    0%, 100% {
+      box-shadow:
+        0 0 7px color-mix(in srgb, var(--brand-primary) 38%, transparent),
+        0 0 15px color-mix(in srgb, var(--brand-primary) 18%, transparent),
+        inset 0 0 10px color-mix(in srgb, var(--brand-primary) 12%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 13px color-mix(in srgb, var(--brand-primary) 62%, transparent),
+        0 0 28px color-mix(in srgb, var(--brand-primary) 32%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+    }
+  }
+  .client-timer-display.danger-time {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, .75);
+    animation: neonBreathDanger 1.5s ease-in-out infinite;
+  }
+  @keyframes neonBreathDanger {
+    0%, 100% {
+      box-shadow:
+        0 0 8px rgba(239, 68, 68, .5),
+        0 0 16px rgba(239, 68, 68, .25),
+        inset 0 0 10px rgba(239, 68, 68, .15);
+    }
+    50% {
+      box-shadow:
+        0 0 15px rgba(239, 68, 68, .8),
+        0 0 30px rgba(239, 68, 68, .4),
+        inset 0 0 14px rgba(239, 68, 68, .25);
+    }
+  }
+  .timer-progress-track {
+    background: rgba(0,0,0,.35);
+    border-radius: 99px;
+    height: 8px;
+    overflow: hidden;
+    margin: 12px 0 20px;
+    border: 1px solid color-mix(in srgb, var(--brand-primary) 65%, transparent);
+    box-shadow:
+      0 0 8px color-mix(in srgb, var(--brand-primary) 45%, transparent),
+      0 0 16px color-mix(in srgb, var(--brand-primary) 25%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--brand-primary) 18%, transparent);
+    animation: barNeon 2.8s ease-in-out infinite;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  @keyframes barNeon {
+    0%, 100% {
+      box-shadow:
+        0 0 7px color-mix(in srgb, var(--brand-primary) 38%, transparent),
+        0 0 13px color-mix(in srgb, var(--brand-primary) 20%, transparent),
+        inset 0 0 7px color-mix(in srgb, var(--brand-primary) 15%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 13px color-mix(in srgb, var(--brand-primary) 65%, transparent),
+        0 0 26px color-mix(in srgb, var(--brand-primary) 35%, transparent),
+        inset 0 0 11px color-mix(in srgb, var(--brand-primary) 24%, transparent);
+    }
+  }
+  .timer-progress-fill {
+    height: 100%;
+    background: var(--brand-primary);
+    border-radius: 99px;
+    transition: width .5s ease, background .3s;
+    box-shadow:
+      0 0 6px color-mix(in srgb, var(--brand-primary) 75%, transparent),
+      0 0 14px color-mix(in srgb, var(--brand-primary) 45%, transparent);
+  }
+  .timer-progress-track.danger {
+    border-color: rgba(239, 68, 68, .85);
+    animation: barNeonDanger 1.5s ease-in-out infinite;
+  }
+  @keyframes barNeonDanger {
+    0%, 100% {
+      box-shadow:
+        0 0 8px rgba(239, 68, 68, .5),
+        0 0 16px rgba(239, 68, 68, .3),
+        inset 0 0 8px rgba(239, 68, 68, .25);
+    }
+    50% {
+      box-shadow:
+        0 0 15px rgba(239, 68, 68, .8),
+        0 0 30px rgba(239, 68, 68, .45),
+        inset 0 0 12px rgba(239, 68, 68, .35);
+    }
+  }
+  .timer-progress-fill.danger {
+    background: #dc2626;
+    box-shadow:
+      0 0 6px rgba(239, 68, 68, .7),
+      0 0 14px rgba(239, 68, 68, .45);
+  }
+  .solicitud-status-card {
+    background: rgba(37,99,235,.1);
+    border: 1px solid rgba(37,99,235,.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .client-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 800px) {
+    .client-layout {
+      grid-template-columns: 1fr 300px;
+    }
+  }
+  .cart-card {
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    position: sticky;
+    top: 16px;
+  }
+  .cart-card header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,.2);
+  }
+  .cart-items-list {
+    list-style: none;
+    padding: 8px 12px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .cart-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color);
+    font-weight: 700;
+  }
+  .status-badge.finished {
+    background-color: rgba(153,27,27,.2);
+    color: #f87171;
+  }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <header><h2>CyberPOS</h2></header>
+  <nav>
+    <a href="dashboard_cliente.html" class="active"><span>🖥️</span> Mi Tiempo</a>
+    <a href="login.html" id="linkSalirCliente"><span>🚪</span> Salir</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="topbar">
+    <button class="hamburger" id="menuBtn">☰</button>
+    <figure>
+      <img src="logo-laneros.jpg" alt="Avatar Usuario">
+      <figcaption id="clienteNombreTop">Cliente Gamer</figcaption>
+    </figure>
+  </header>
+
+  <section class="content">
+    <header class="section-header">
+      <h2>Mi Estación de Juego (<span id="equipoNombreSpan">PC 01</span>)</h2>
+      <mark class="status-badge active" id="badgeEstado">En Juego</mark>
+    </header>
+
+    <!-- Timer Hero -->
+    <article class="client-hero-card">
+      <header>
+        <p style="color:var(--text-muted);font-size:.95rem;text-transform:uppercase;letter-spacing:.06em">Tiempo Restante</p>
+      </header>
+      <time class="client-timer-display" id="clientTiempoRestante">00:00:00</time>
+      <section class="timer-progress-track">
+        <section class="timer-progress-fill" id="clientProgressFill" style="width:100%"></section>
+      </section>
+      <footer style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+        <button type="button" class="primary" id="btnSolicitarTiempo">⏱ Solicitar Más Tiempo</button>
+      </footer>
+
+      <!-- Solicitud pendiente -->
+      <article class="solicitud-status-card" id="cardSolicitudPendiente" style="display:none">
+        <p><strong id="solicitudTextoInfo">Solicitud pendiente: +30 min ($0.75)</strong></p>
+        <p style="font-size:.85rem;color:var(--text-muted);margin-top:4px">Esperando aprobación de caja…</p>
+        <footer style="display:flex;gap:8px;margin-top:8px">
+          <button type="button" class="danger" id="btnCancelarSolicitud">✕ Cancelar</button>
+        </footer>
+      </article>
+    </article>
+
+    <!-- Snacks + Carrito -->
+    <header class="section-header">
+      <h2>🍔 Snacks Disponibles</h2>
+    </header>
+    <section class="client-layout">
+      <section class="snacks-grid" id="clienteSnacksGrid">
+        <p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:32px">Cargando snacks...</p>
+      </section>
+
+      <aside>
+        <article class="cart-card">
+          <header>
+            <h3>🛒 Carrito de Snacks</h3>
+            <p style="color:var(--text-muted);font-size:.82rem;margin-top:4px">Agrega productos y los llevamos a tu PC</p>
+          </header>
+          <ul class="cart-items-list" id="cartItemsList">
+            <li style="text-align:center;color:var(--text-muted);padding:20px 0">El carrito está vacío</li>
+          </ul>
+          <section class="cart-summary">
+            <span>Total:</span>
+            <data id="cartTotal" value="0.00">$0.00</data>
+          </section>
+          <footer style="padding:12px 16px">
+            <button type="button" class="primary" id="btnPedirLugar" style="width:100%" disabled>📦 Pedir a mi lugar</button>
+          </footer>
+        </article>
+      </aside>
+    </section>
+  </section>
+</main>
+
+<!-- Modal: Solicitar Tiempo -->
+<dialog id="modalSolicitarTiempo">
+  <article class="modal-content">
+    <header class="modal-header">
+      <h3>⏱ Solicitar Más Tiempo</h3>
+      <button class="close-modal" id="btnCloseSolicitud">×</button>
+    </header>
+    <form id="formSolicitarTiempo" onsubmit="event.preventDefault()">
+      <fieldset class="form-fields">
+        <p style="color:var(--text-muted);font-size:.9rem">Elige una opción rápida o escribe los minutos:</p>
+        <section style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0">
+          <button type="button" class="secondary preset-btn" data-min="15">15 min</button>
+          <button type="button" class="secondary preset-btn" data-min="30">30 min</button>
+          <button type="button" class="secondary preset-btn" data-min="45">45 min</button>
+          <button type="button" class="secondary preset-btn" data-min="60">1 hora</button>
+        </section>
+        <p class="form-group">
+          <label for="minutosSolicitud">Minutos Personalizados</label>
+          <input type="number" id="minutosSolicitud" min="5" placeholder="Ej. 30" required>
+        </p>
+        <p style="font-size:.9rem;color:var(--text-muted)">Monto estimado: <strong id="montoEstimadoTexto" style="color:var(--brand-primary)">$0.00</strong></p>
+      </fieldset>
+      <footer class="modal-actions">
+        <button type="button" class="secondary" id="btnCancelSolicitud">Cancelar</button>
+        <button type="submit" class="primary">📤 Enviar Solicitud a Caja</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+</script>
+<script src="js/api.js"></script>
+<script src="js/cliente.js"></script>
+</body>
+</html>

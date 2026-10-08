@@ -1,0 +1,7 @@
+# CyberPOS - Evita que el navegador sirva HTML/JS/CSS viejos (cambios no se veian).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+  </FilesMatch>
+</IfModule>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario — CyberPOS Gaming</title>
+<meta name="description" content="Gestión de inventario de snacks y catálogo personalizado.">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .catalog-section {
+    margin-bottom: 40px;
+    padding: 24px;
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+  }
+  .catalog-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+  }
+  .catalog-section-header h2 {
+    flex: 1;
+    font-size: 1.2rem;
+  }
+  .catalog-badge {
+    background: rgba(53,192,41,.15);
+    color: var(--brand-primary);
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+  .custom-catalog-badge {
+    background: rgba(124,58,237,.15);
+    color: #a78bfa;
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <header><h2>CyberPOS</h2></header>
+  <nav>
+    <a href="dashboard.html"><span>🖥️</span> Monitoreo</a>
+    <a href="crud.html" class="active"><span>🍔</span> Inventario</a>
+    <a href="ventas.html"><span>💰</span> Ventas</a>
+    <a href="configuracion.html"><span>⚙️</span> Configuración</a>
+    <a href="login.html"><span>🚪</span> Salir</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="topbar">
+    <button class="hamburger" id="menuBtn">☰</button>
+    <figure>
+      <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+      <figcaption>Admin User</figcaption>
+    </figure>
+  </header>
+
+  <section class="content">
+
+    <!-- CATÁLOGO SNACKS ESTÁNDAR -->
+    <div id="snacksCatalog" class="catalog-section">
+      <div class="catalog-section-header">
+        <h2>🍔 Catálogo de Snacks</h2>
+        <span class="catalog-badge">Estándar</span>
+        <form class="toolbar" onsubmit="event.preventDefault()" style="margin-left:auto">
+          <fieldset class="search-bar">
+            <input type="text" placeholder="Buscar snack...">
+            <select>
+              <option value="all">Todas las categorías</option>
+              <option value="bebidas">Bebidas</option>
+              <option value="comida">Comida</option>
+            </select>
+            <button class="primary" id="btnNuevoSnack" type="button">+ Nuevo</button>
+          </fieldset>
+        </form>
+      </div>
+      <section class="snacks-grid" id="snacksGrid">
+        <p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:32px">Cargando...</p>
+      </section>
+    </div>
+
+    <!-- CATÁLOGO PERSONALIZADO -->
+    <div id="personalizadosCatalog" class="catalog-section">
+      <div class="catalog-section-header">
+        <h2>🛍️ Catálogo Personalizado</h2>
+        <span class="custom-catalog-badge">Personalizado</span>
+        <p style="font-size:.82rem;color:var(--text-muted);flex:1">Agrega cualquier producto con la categoría que quieras.</p>
+        <form class="toolbar" onsubmit="event.preventDefault()" style="margin-left:auto">
+          <fieldset class="search-bar">
+            <input type="text" id="searchPersonalizados" placeholder="Buscar producto...">
+            <select id="categoriaPersonalizados">
+              <option value="all">Todas las categorías</option>
+            </select>
+            <button class="primary" id="btnNuevoPers" type="button">+ Nuevo</button>
+          </fieldset>
+        </form>
+      </div>
+      <section class="snacks-grid" id="personalizadosGrid">
+        <p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:32px">Sin productos personalizados aún. ¡Agrega el primero!</p>
+      </section>
+    </div>
+
+  </section>
+</main>
+
+<!-- Modal: Crear / Editar Producto (compartido) -->
+<dialog id="modalForm">
+  <article class="modal-content">
+    <header class="modal-header">
+      <h3 id="modalTitle">Nuevo Producto</h3>
+      <button class="close-modal" id="btnCloseModal">×</button>
+    </header>
+    <form id="snackForm" onsubmit="event.preventDefault()">
+      <fieldset class="form-fields">
+        <p class="form-group">
+          <label for="snackName">Nombre del Producto</label>
+          <input type="text" id="snackName" placeholder="Ej. Coca Cola 500ml" required>
+        </p>
+        <p class="form-group">
+          <label for="snackPrice">Precio (USD $)</label>
+          <input type="number" id="snackPrice" step="0.01" min="0.01" placeholder="0.00" required>
+        </p>
+        <p class="form-group">
+          <label for="snackStock">Stock</label>
+          <input type="number" id="snackStock" min="0" placeholder="0" required>
+        </p>
+        <p class="form-group">
+          <label for="snackImage">URL de Imagen</label>
+          <input type="url" id="snackImage" placeholder="https://...">
+        </p>
+        <!-- Categoría para snacks estándar -->
+        <p class="form-group">
+          <label>Categoría</label>
+          <select id="snackCategory" style="padding:10px;border-radius:6px;background:var(--bg-card);color:var(--text-main);border:1px solid var(--border-color);width:100%">
+            <option value="bebidas">Bebidas</option>
+            <option value="comida">Comida</option>
+          </select>
+          <!-- Categoría libre para personalizados -->
+          <input type="text" id="snackCategoryCustom" placeholder="Ej. Electrónicos, Accesorios, Servicios..." style="display:none;padding:10px;border-radius:6px;background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);width:100%;margin-top:4px">
+        </p>
+      </fieldset>
+      <footer class="modal-actions">
+        <button type="button" class="secondary" id="btnCancelModal">Cancelar</button>
+        <button type="submit" class="primary">Guardar</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<!-- Modal: Confirmar Eliminación -->
+<dialog id="modalDelete">
+  <article class="modal-content">
+    <header class="modal-header">
+      <h3>⚠️ Confirmar Eliminación</h3>
+      <button class="close-modal" id="btnCloseDelete">×</button>
+    </header>
+    <form onsubmit="event.preventDefault()">
+      <fieldset class="form-fields">
+        <p>Esta acción no se puede deshacer.</p>
+      </fieldset>
+      <footer class="modal-actions">
+        <button type="button" class="secondary" id="btnCancelDelete">Cancelar</button>
+        <button type="button" class="danger">Eliminar</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+</script>
+<script src="js/api.js"></script>
+<script src="js/crud.js"></script>
+</body>
+</html>
