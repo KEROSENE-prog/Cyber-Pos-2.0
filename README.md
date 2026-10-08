@@ -63,7 +63,7 @@ El prototipo está construido siguiendo una guía de estilo basada en variables 
    * Selector de pestañas (*Tabs*) para cambiar dinámicamente entre el rol de **Cliente** y **Administrador**.
 
 
-## 🚀 Mejoras y Correcciones Implementadas
+##  Mejoras y Correcciones Implementadas
 
 ### 1. Corrección de zona horaria y expiración de tiempo
 * Se detectó un desfase de **6 horas** entre PHP (`Europe/Berlin`) y MySQL (`America/Caracas`) que provocaba que las sesiones de tiempo expiraran al instante.
