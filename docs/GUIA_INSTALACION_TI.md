@@ -1,16 +1,16 @@
-# Guía Técnica de Instalación, Despliegue y Plan de Contingencia TI
-## Sistema POS y Control de Tiempo para Cyber Gaming — CyberPOS 2.0 (Laneros Gamer)
+# Guía de Instalación, Configuración y Respaldo
+## CyberPOS 2.0 — Laneros Gamer (Barquisimeto)
 
 * **Institución:** Instituto Universitario Jesús Obrero (IUJO)
-* **Proyecto:** CyberPOS 2.0 — Laneros Gamer (Barquisimeto, Venezuela)
-* **Rama de Trabajo:** `feature/implantacion-respaldo-docs`
-* **Perfil de Audiencia:** Administradores de Sistemas, Ingenieros DevOps, Especialistas de Soporte TI y Personal de Caja.
+* **Proyecto:** CyberPOS 2.0 — Sistema de Punto de Venta y Control de Tiempo
+* **Rama:** `feature/implantacion-respaldo-docs`
+* **Dirigido a:** Administrador del cyber y soporte técnico
 
 ---
 
 ## 1. Arquitectura y Stack Tecnológico
 
-El sistema **CyberPOS 2.0** es una solución integral para salas de videojuegos y cybers que combina un Punto de Venta (POS) con facturación multimoneda (USD y Bolívares a tasa oficial BCV) y un monitor de alquiler de estaciones (PCs Gaming y Consolas PlayStation 5) en tiempo real.
+CyberPOS 2.0 es el sistema de control de tiempo y punto de venta del cyber Laneros Gamer. Permite monitorear las computadoras y consolas en tiempo real, facturar productos de la tienda y hacer conversiones automáticas en dólares y bolívares según la tasa del BCV.
 
 ```
 +-----------------------------------------------------------------------+

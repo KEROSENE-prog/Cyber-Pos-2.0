@@ -1,11 +1,10 @@
 <#
 .SYNOPSIS
-    CYBERPOS 2.0 - LANEROS GAMER
-    Script PowerShell de Respaldo y Restauracion de Base de Datos (Windows / XAMPP)
+    Script de respaldo y restauracion de base de datos para CyberPOS (XAMPP)
 
 .DESCRIPTION
-    Permite generar copias de seguridad de la base de datos 'cyberpos' con marca de tiempo,
-    restaurar copias previas, inicializar el esquema DDL y poblar las semillas.
+    Permite sacar respaldos con fecha y hora, restaurar archivos .sql,
+    o volver a cargar schema.sql y seeds.sql.
 
 .PARAMETER Action
     Accion directa a ejecutar: 'backup', 'restore', 'schema', 'seeds', 'menu'.

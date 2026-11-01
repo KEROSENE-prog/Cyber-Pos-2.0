@@ -2,15 +2,15 @@
 ## CyberPOS 2.0 — Sistema de Monitoreo y Punto de Venta para Cyber Gaming
 ### Establecimiento: Laneros Gamer (Barquisimeto, Venezuela)
 
-> **Guía Directa de Auditoría y Despliegue Técnico**  
-> **Rama Activa:** `feature/implantacion-respaldo-docs`  
-> **Entorno de Evaluación:** Localhost / XAMPP 8.2+ / PHP 8.2 / MariaDB 10.4+
+> **Guía de Instalación, Pruebas y Auditoría**  
+> **Rama de Trabajo:** `feature/implantacion-respaldo-docs`  
+> **Servidor Local:** XAMPP 8.2 (PHP 8.2 + MariaDB)
 
 ---
 
-## 1. Descripción Breve de la Arquitectura Actual
+## 1. Arquitectura del Sistema
 
-**CyberPOS 2.0** es una solución integral para salas de videojuegos y cybercafés eSports que combina el monitoreo en tiempo real de estaciones de juego con un Punto de Venta (POS) multimoneda (Dólares y Bolívares según la tasa del BCV).
+CyberPOS 2.0 es el sistema web para Laneros Gamer que combina el monitoreo en tiempo real de las computadoras y consolas PS5 con un punto de venta (POS) multimoneda (dólares y bolívares calculados con la tasa oficial del BCV).
 
 ```
 [ Cliente Web / POS ] <---> [ API Front Controller (api/index.php) ] <---> [ Base de Datos MySQL ]
