@@ -2,6 +2,7 @@
 /**
  * CyberPOS - Modelo Pedido de snacks.
  * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
+ * Transacción atómica con verificación de stock real antes de descontar (Etapa 3).
  */
 
 class Pedido extends Model
@@ -32,6 +33,14 @@ class Pedido extends Model
         return $p ? $this->cast($p) : null;
     }
 
+    /**
+     * Crea el pedido registrándolo en pedidos_snacks y desconta stock de productos.
+     *
+     * Transacción atómica:
+     *  1. Verifica el stock real disponible de cada ítem DENTRO de la transacción.
+     *  2. Si algún ítem no tiene stock suficiente → ROLLBACK inmediato sin descontar nada.
+     *  3. Si todo está bien → descuenta stock de cada ítem e inserta el pedido → COMMIT.
+     */
     public function crear(?int $equipoId, string $equipoNombre, string $clienteNombre, array $items, float $total): array
     {
         if (empty($items)) {
@@ -71,12 +80,64 @@ class Pedido extends Model
             ];
         }
 
-        $st = $this->db->prepare(
-            'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
-             VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'
-        );
-        $st->execute([$equipoId, $equipoNombre, $clienteNombre, json_encode($itemsSanitizados, JSON_UNESCAPED_UNICODE), round($total, 2)]);
-        return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Pedido enviado.'];
+        // ── TRANSACCIÓN ATÓMICA ──────────────────────────────────────────
+        $this->db->beginTransaction();
+        try {
+            // 1. Verificar stock real de cada producto dentro de la transacción
+            $stStock = $this->db->prepare('SELECT id, nombre, stock FROM productos WHERE id = ?');
+            foreach ($itemsSanitizados as $item) {
+                if ($item['id'] <= 0) {
+                    continue; // ítems sin ID registrado (e.g. snacks externos) no descontan stock
+                }
+                $stStock->execute([$item['id']]);
+                $prod = $stStock->fetch();
+                if ($prod && (int) $prod['stock'] < $item['cantidad']) {
+                    throw new \RuntimeException(
+                        "Stock insuficiente para \"{$prod['nombre']}\": disponible {$prod['stock']}, solicitado {$item['cantidad']}."
+                    );
+                }
+            }
+
+            // 2. Descontar stock
+            $stDesc = $this->db->prepare(
+                'UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?'
+            );
+            foreach ($itemsSanitizados as $item) {
+                if ($item['id'] <= 0) {
+                    continue;
+                }
+                $stDesc->execute([$item['cantidad'], $item['id'], $item['cantidad']]);
+                if ($stDesc->rowCount() === 0) {
+                    // La fila no se actualizó: stock insuficiente en el momento exacto (race condition)
+                    throw new \RuntimeException(
+                        "Stock insuficiente para el producto #{$item['id']} al momento de descontar (posible concurrencia)."
+                    );
+                }
+            }
+
+            // 3. Insertar el pedido
+            $st = $this->db->prepare(
+                'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
+                 VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'
+            );
+            $st->execute([
+                $equipoId,
+                $equipoNombre,
+                $clienteNombre,
+                json_encode($itemsSanitizados, JSON_UNESCAPED_UNICODE),
+                round($total, 2),
+            ]);
+            $pedidoId = (int) $this->db->lastInsertId();
+
+            $this->db->commit();
+        } catch (\Throwable $ex) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $ex->getMessage()];
+        }
+
+        return ['success' => true, 'data' => $this->getById($pedidoId), 'message' => 'Pedido enviado.'];
     }
 
     public function cambiarEstado(int $id, string $estado): array

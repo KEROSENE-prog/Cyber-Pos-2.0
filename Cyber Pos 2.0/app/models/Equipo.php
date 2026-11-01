@@ -3,6 +3,7 @@
  * CyberPOS - Modelo Equipo (PC / Consola).
  * El tiempo transcurrido se calcula en el servidor a partir de fecha_inicio.
  * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
+ * Unicidad de nombre_equipo, transacciones atómicas inicio/recarga + sesión (Etapa 3).
  */
 
 class Equipo extends Model
@@ -53,6 +54,23 @@ class Equipo extends Model
         return $e ?: null;
     }
 
+    /** Verifica si ya existe un equipo con el mismo nombre (excluyendo el id dado). */
+    private function nombreExiste(string $nombre, ?int $excludeId = null): bool
+    {
+        if ($excludeId !== null) {
+            $st = $this->db->prepare(
+                'SELECT COUNT(*) FROM equipos WHERE nombre_equipo = ? AND id != ?'
+            );
+            $st->execute([$nombre, $excludeId]);
+        } else {
+            $st = $this->db->prepare(
+                'SELECT COUNT(*) FROM equipos WHERE nombre_equipo = ?'
+            );
+            $st->execute([$nombre]);
+        }
+        return (int) $st->fetchColumn() > 0;
+    }
+
     public function getAll(): array
     {
         $rows = $this->db->query('SELECT * FROM equipos ORDER BY id')->fetchAll();
@@ -79,6 +97,11 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'El nombre del equipo no puede exceder los 100 caracteres.'];
         }
 
+        // ── UNICIDAD: bloquear nombre duplicado ──────────────────────────
+        if ($this->nombreExiste($nombre)) {
+            return ['success' => false, 'error' => "Ya existe un equipo registrado con el nombre \"{$nombre}\". Usa un nombre diferente."];
+        }
+
         $tipo = ($data['tipo'] ?? 'pc') === 'consola' ? 'consola' : 'pc';
 
         if (isset($data['tarifa_por_hora'])) {
@@ -93,13 +116,21 @@ class Equipo extends Model
             $tarifa = ($tipo === 'consola') ? 2.00 : 1.50;
         }
 
-        $st = $this->db->prepare(
-            'INSERT INTO equipos (nombre_equipo, tipo, tarifa_por_hora, estado, tiempo_transcurrido, tiempo_limite, cliente, notificado, fecha_creacion)
-             VALUES (?, ?, ?, "inactiva", 0, 0, "", 0, NOW())'
-        );
-        $st->execute([$nombre, $tipo, $tarifa]);
-        $id = (int) $this->db->lastInsertId();
-        $this->db->prepare('UPDATE equipos SET numero = LPAD(?, 2, "0") WHERE id = ?')->execute([$id, $id]);
+        try {
+            $st = $this->db->prepare(
+                'INSERT INTO equipos (nombre_equipo, tipo, tarifa_por_hora, estado, tiempo_transcurrido, tiempo_limite, cliente, notificado, fecha_creacion)
+                 VALUES (?, ?, ?, "inactiva", 0, 0, "", 0, NOW())'
+            );
+            $st->execute([$nombre, $tipo, $tarifa]);
+            $id = (int) $this->db->lastInsertId();
+            $this->db->prepare('UPDATE equipos SET numero = LPAD(?, 2, "0") WHERE id = ?')->execute([$id, $id]);
+        } catch (\PDOException $e) {
+            // Captura violación de clave única a nivel de base de datos
+            if ($e->getCode() === '23000') {
+                return ['success' => false, 'error' => "Ya existe un equipo con el nombre \"{$nombre}\" (conflicto en base de datos)."];
+            }
+            throw $e;
+        }
 
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Equipo agregado.'];
     }
@@ -109,7 +140,7 @@ class Equipo extends Model
         if (!$this->raw($id)) {
             return ['success' => false, 'error' => 'Equipo no encontrado.'];
         }
-        $sets = [];
+        $sets   = [];
         $params = [];
 
         if (isset($data['nombre_equipo'])) {
@@ -120,12 +151,16 @@ class Equipo extends Model
             if (mb_strlen($nombre) > 100) {
                 return ['success' => false, 'error' => 'El nombre del equipo no puede exceder los 100 caracteres.'];
             }
-            $sets[] = 'nombre_equipo = ?';
+            // ── UNICIDAD: bloquear renombrar a un nombre ya usado ────────
+            if ($this->nombreExiste($nombre, $id)) {
+                return ['success' => false, 'error' => "Ya existe otro equipo registrado con el nombre \"{$nombre}\". Usa un nombre diferente."];
+            }
+            $sets[]   = 'nombre_equipo = ?';
             $params[] = $nombre;
         }
 
         if (isset($data['tipo'])) {
-            $sets[] = 'tipo = ?';
+            $sets[]   = 'tipo = ?';
             $params[] = $data['tipo'] === 'consola' ? 'consola' : 'pc';
         }
 
@@ -137,7 +172,7 @@ class Equipo extends Model
             if (is_nan($tarifa) || is_infinite($tarifa) || $tarifa <= 0) {
                 return ['success' => false, 'error' => 'Tarifa por hora inválida: debe ser mayor a 0.'];
             }
-            $sets[] = 'tarifa_por_hora = ?';
+            $sets[]   = 'tarifa_por_hora = ?';
             $params[] = $tarifa;
         }
 
@@ -145,8 +180,16 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'No hay cambios para guardar.'];
         }
 
-        $params[] = $id;
-        $this->db->prepare('UPDATE equipos SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
+        try {
+            $params[] = $id;
+            $this->db->prepare('UPDATE equipos SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
+        } catch (\PDOException $e) {
+            if ($e->getCode() === '23000') {
+                return ['success' => false, 'error' => 'Nombre de equipo duplicado (conflicto en base de datos).'];
+            }
+            throw $e;
+        }
+
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Equipo actualizado.'];
     }
 
@@ -159,6 +202,10 @@ class Equipo extends Model
         return ['success' => true, 'message' => 'Equipo eliminado.'];
     }
 
+    /**
+     * Registra la sesión de uso en sesiones_uso.
+     * Debe llamarse siempre dentro de una transacción activa.
+     */
     private function registrarSesion(int $equipoId, string $equipoNombre, string $cliente, int $segundos, float $monto): void
     {
         $cliente = trim(strip_tags($cliente));
@@ -181,6 +228,10 @@ class Equipo extends Model
         $st->execute([$equipoId, $equipoNombre, $cliente, $segundos, max(0.0, round($monto, 2))]);
     }
 
+    /**
+     * Inicia el temporizador del equipo y registra la sesión en sesiones_uso.
+     * Transacción atómica: si falla el INSERT de sesiones_uso, revierte el UPDATE del equipo.
+     */
     public function iniciarConLimite(int $id, int $minutos, string $cliente = ''): array
     {
         $e = $this->raw($id);
@@ -204,15 +255,31 @@ class Equipo extends Model
         $tarifa   = (float) $e['tarifa_por_hora'];
         $monto    = round(($minutos / 60) * $tarifa, 2);
 
-        $st = $this->db->prepare(
-            'UPDATE equipos SET estado = "activa", tiempo_transcurrido = 0, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
-        );
-        $st->execute([$segundos, $cliente, $id]);
-        $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
+        // ── TRANSACCIÓN ATÓMICA: UPDATE equipos + INSERT sesiones_uso ────
+        $this->db->beginTransaction();
+        try {
+            $st = $this->db->prepare(
+                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = 0, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
+            );
+            $st->execute([$segundos, $cliente, $id]);
+
+            $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
+
+            $this->db->commit();
+        } catch (\Throwable $ex) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => 'Error al iniciar tiempo: ' . $ex->getMessage()];
+        }
 
         return ['success' => true, 'data' => $this->getById($id), 'monto' => $monto, 'message' => 'Tiempo iniciado.'];
     }
 
+    /**
+     * Agrega tiempo a un equipo ya activo o finalizado y registra la sesión.
+     * Transacción atómica: si falla el INSERT de sesiones_uso, revierte el UPDATE del equipo.
+     */
     public function agregarTiempo(int $id, int $minutos, ?string $cliente = null): array
     {
         $e = $this->raw($id);
@@ -233,17 +300,28 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
         }
 
-        $segundos = $minutos * 60;
-        $tarifa   = (float) $e['tarifa_por_hora'];
-        $monto    = round(($minutos / 60) * $tarifa, 2);
-
+        $segundos     = $minutos * 60;
+        $tarifa       = (float) $e['tarifa_por_hora'];
+        $monto        = round(($minutos / 60) * $tarifa, 2);
         $transcurrido = $this->transcurridoActual($e);
         $limite       = (int) $e['tiempo_limite'] + $segundos;
 
-        $this->db->prepare(
-            'UPDATE equipos SET estado = "activa", tiempo_transcurrido = ?, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
-        )->execute([$transcurrido, $limite, $cliente, $id]);
-        $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
+        // ── TRANSACCIÓN ATÓMICA: UPDATE equipos + INSERT sesiones_uso ────
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare(
+                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = ?, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
+            )->execute([$transcurrido, $limite, $cliente, $id]);
+
+            $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
+
+            $this->db->commit();
+        } catch (\Throwable $ex) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => 'Error al agregar tiempo: ' . $ex->getMessage()];
+        }
 
         return ['success' => true, 'data' => $this->getById($id), 'monto' => $monto, 'message' => 'Tiempo agregado.'];
     }
