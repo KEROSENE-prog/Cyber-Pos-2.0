@@ -2,12 +2,32 @@
  * CyberPOS — cliente.js v4
  * Vista cliente: tiempo restante, solicitud de tiempo, pedido de snacks con carrito.
  * Backend PHP: /equipos, /productos, /solicitudes, /pedidos, /config.
- * Validaciones estrictas de valores límite (Etapa 1).
+ * Validaciones estrictas de valores límite (Etapa 1) e inmunidad Chaos/XSS (Etapa 2).
  */
 
 let carrito      = [];
 let miEquipoId   = null;
 let ultimaSolicitudPendienteId = null;
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!Auth.requireAuth('cliente')) return;
@@ -270,7 +290,7 @@ async function cargarSnacksCliente() {
         <footer class="card-actions">
           <button type="button" class="primary btn-agregar-carrito"
             data-id="${snack.id}"
-            data-origen="${snack._origen || 'snacks'}"
+            data-origen="${escapeAttr(snack._origen || 'snacks')}"
             data-nombre="${escapeAttr(snack.nombre)}"
             data-precio="${snack.precio}"
             ${agotado ? 'disabled' : ''}>
@@ -329,14 +349,24 @@ function renderizarCarrito() {
     <li style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color)">
       <span style="flex:1;font-size:.9rem">${escapeHtml(item.nombre)}</span>
       <span style="display:flex;align-items:center;gap:6px">
-        <button type="button" onclick="cambiarCantidad(${i}, -1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
+        <button type="button" class="btn-cart-minus" data-idx="${i}" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
         <span style="min-width:20px;text-align:center">${item.cantidad}</span>
-        <button type="button" onclick="cambiarCantidad(${i}, 1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
+        <button type="button" class="btn-cart-plus" data-idx="${i}" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
         <strong style="min-width:50px;text-align:right;color:var(--brand-primary)">$${(item.precio * item.cantidad).toFixed(2)}</strong>
-        <button type="button" onclick="quitarDelCarrito(${i})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem">✕</button>
+        <button type="button" class="btn-cart-remove" data-idx="${i}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem">✕</button>
       </span>
     </li>
   `).join('');
+
+  lista.querySelectorAll('.btn-cart-minus').forEach(b => {
+    b.addEventListener('click', () => cambiarCantidad(parseInt(b.dataset.idx, 10), -1));
+  });
+  lista.querySelectorAll('.btn-cart-plus').forEach(b => {
+    b.addEventListener('click', () => cambiarCantidad(parseInt(b.dataset.idx, 10), 1));
+  });
+  lista.querySelectorAll('.btn-cart-remove').forEach(b => {
+    b.addEventListener('click', () => quitarDelCarrito(parseInt(b.dataset.idx, 10)));
+  });
 
   const total = carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
   if (totalEl) totalEl.innerHTML = `$${total.toFixed(2)} <small style="display:block;color:#64748b;font-size:.75rem">Bs. ${(total * tasa).toFixed(2)}</small>`;
@@ -363,6 +393,9 @@ function quitarDelCarrito(idx) {
     renderizarCarrito();
   }
 }
+
+window.cambiarCantidad = cambiarCantidad;
+window.quitarDelCarrito = quitarDelCarrito;
 
 function setupCarrito(usuario) {
   const btnPedir = document.getElementById('btnPedirLugar');
@@ -404,13 +437,4 @@ function setupCarrito(usuario) {
       showToast(err.message || 'Error al enviar pedido.', 'error');
     }
   });
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }

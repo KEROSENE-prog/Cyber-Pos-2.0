@@ -1,6 +1,7 @@
 <?php
 /**
  * CyberPOS - Modelo SesionUso (registro de alquileres y ventas).
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class SesionUso extends Model
@@ -39,7 +40,7 @@ class SesionUso extends Model
 
     public function registrarVenta(string $cliente, float $monto, array $items = []): int
     {
-        $cliente = trim($cliente);
+        $cliente = trim(strip_tags($cliente));
         if ($cliente === '') {
             $cliente = 'Mostrador';
         }

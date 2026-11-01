@@ -2,7 +2,7 @@
  * CyberPOS — crud.js v4
  * Inventario de Snacks (catálogo estándar) + Catálogo Personalizado.
  * Precio en Bs (tasa BCV) mostrado en gris pequeño debajo del precio USD.
- * Validaciones estrictas de valores límite (Etapa 1).
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 let currentEditId   = null;
@@ -137,7 +137,7 @@ function renderizarProductos(productos, gridId, tipo) {
           </p>
         </section>
         <footer class="card-actions">
-          <button class="secondary btn-editar"
+          <button type="button" class="secondary btn-editar"
             data-id="${prod.id}"
             data-tipo="${tipo}"
             data-nombre="${escapeAttr(prod.nombre)}"
@@ -147,7 +147,7 @@ function renderizarProductos(productos, gridId, tipo) {
             data-categoria="${escapeAttr(catLabel)}">
             ✏️ Editar
           </button>
-          <button class="danger btn-eliminar"
+          <button type="button" class="danger btn-eliminar"
             data-id="${prod.id}"
             data-tipo="${tipo}"
             data-nombre="${escapeAttr(prod.nombre)}">
@@ -374,12 +374,22 @@ function setupModales() {
   }
 }
 
-// Helpers
+// Helpers seguros contra XSS
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

@@ -1,12 +1,27 @@
 /**
  * CyberPOS — configuracion.js v4
  * Perfil, tema de color y tasa BCV. Persistido en el backend PHP.
- * Validaciones estrictas de valores límite (Etapa 1).
+ * Validaciones estrictas de valores límite (Etapa 1) e Inmunidad Chaos/XSS (Etapa 2).
  */
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function formatDuracionSesion(segundos) {
@@ -194,7 +209,7 @@ async function cargarConfiguracion() {
         : 'automática';
       displayTasa.innerHTML =
         `<strong>Bs. ${parseFloat(c.tasa_bcv || 36.85).toFixed(2)}</strong> · ` +
-        `<small style="color:var(--text-muted)">${c.tasa_manual ? 'Manual' : 'BCV'} · ${f}</small>`;
+        `<small style="color:var(--text-muted)">${c.tasa_manual ? 'Manual' : 'BCV'} · ${escapeHtml(f)}</small>`;
     }
 
     if (c.theme_color) document.documentElement.style.setProperty('--brand-primary', c.theme_color);
@@ -300,7 +315,7 @@ function setupFormTema() {
       <button type="button" class="color-preset-btn"
         onclick="seleccionarColor('${c.valor}')"
         style="width:36px;height:36px;border-radius:50%;background:${c.valor};border:3px solid transparent;cursor:pointer;transition:all .2s"
-        title="${c.nombre}"></button>
+        title="${escapeAttr(c.nombre)}"></button>
     `).join('');
   }
 

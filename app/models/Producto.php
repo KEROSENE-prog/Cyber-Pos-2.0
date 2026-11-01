@@ -2,6 +2,7 @@
 /**
  * CyberPOS - Modelo Producto.
  * Une el catalogo estandar ("snacks") y el personalizado mediante la columna origen.
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class Producto extends Model
@@ -16,18 +17,35 @@ class Producto extends Model
         return $p;
     }
 
+    private function sanitizarUrlImagen(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return self::IMAGEN_DEFAULT;
+        }
+        // Bloquear esquemas peligrosos como javascript:, data: o vbscript:
+        if (!preg_match('/^(https?:\/\/|\/|\.\/|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
+            return self::IMAGEN_DEFAULT;
+        }
+        return filter_var($url, FILTER_SANITIZE_URL) ?: self::IMAGEN_DEFAULT;
+    }
+
     public function getAll(string $categoria = 'all', string $busqueda = '', string $origen = 'snacks'): array
     {
+        $origen = ($origen === 'personalizados') ? 'personalizados' : 'snacks';
         $sql    = 'SELECT * FROM productos WHERE origen = ?';
         $params = [$origen];
+
         if ($categoria !== '' && strtolower($categoria) !== 'all') {
             $sql .= ' AND LOWER(categoria) = ?';
-            $params[] = strtolower($categoria);
+            $params[] = strtolower(trim($categoria));
         }
+
         if ($busqueda !== '') {
             $sql .= ' AND LOWER(nombre) LIKE ?';
-            $params[] = '%' . strtolower($busqueda) . '%';
+            $params[] = '%' . strtolower(trim($busqueda)) . '%';
         }
+
         $sql .= ' ORDER BY id';
         $st = $this->db->prepare($sql);
         $st->execute($params);
@@ -47,13 +65,16 @@ class Producto extends Model
     {
         $sql    = 'SELECT * FROM productos';
         $params = [];
+
         if ($busqueda !== '') {
             $sql .= ' WHERE LOWER(nombre) LIKE ?';
-            $params[] = '%' . strtolower($busqueda) . '%';
+            $params[] = '%' . strtolower(trim($busqueda)) . '%';
         }
+
         $sql .= ' ORDER BY origen, id';
         $st = $this->db->prepare($sql);
         $st->execute($params);
+
         return array_map(function ($p) {
             $p = $this->cast($p);
             $p['_origen'] = $p['origen'];
@@ -63,9 +84,11 @@ class Producto extends Model
 
     public function create(array $data, string $origen): array
     {
-        $nombre = isset($data['nombre']) ? trim((string) $data['nombre']) : '';
+        $nombreRaw = isset($data['nombre']) ? (string) $data['nombre'] : '';
+        $nombre    = trim(strip_tags($nombreRaw));
+
         if ($nombre === '') {
-            return ['success' => false, 'error' => 'El nombre del producto es obligatorio y no puede componerse solo de espacios.'];
+            return ['success' => false, 'error' => 'El nombre del producto es obligatorio y no puede consistir únicamente en etiquetas HTML o espacios.'];
         }
         if (mb_strlen($nombre) > 150) {
             return ['success' => false, 'error' => 'El nombre del producto no puede exceder los 150 caracteres.'];
@@ -91,7 +114,8 @@ class Producto extends Model
             return ['success' => false, 'error' => 'El stock no puede ser negativo.'];
         }
 
-        $categoria = isset($data['categoria']) ? trim((string) $data['categoria']) : '';
+        $categoriaRaw = isset($data['categoria']) ? (string) $data['categoria'] : '';
+        $categoria    = trim(strip_tags($categoriaRaw));
         if ($categoria === '') {
             $categoria = ($origen === 'snacks') ? 'bebidas' : 'Otro';
         }
@@ -100,16 +124,19 @@ class Producto extends Model
         }
 
         $origen = ($origen === 'personalizados') ? 'personalizados' : 'snacks';
-        $imagen = isset($data['url_imagen']) && trim((string) $data['url_imagen']) !== ''
-            ? trim((string) $data['url_imagen'])
-            : self::IMAGEN_DEFAULT;
+        $imagen = $this->sanitizarUrlImagen((string) ($data['url_imagen'] ?? ''));
 
         $st = $this->db->prepare(
             'INSERT INTO productos (nombre, precio, stock, url_imagen, categoria, origen, fecha_creacion)
              VALUES (?, ?, ?, ?, ?, ?, NOW())'
         );
         $st->execute([$nombre, $precio, $stock, $imagen, $categoria, $origen]);
-        return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Producto agregado.'];
+
+        return [
+            'success' => true,
+            'data'    => $this->getById((int) $this->db->lastInsertId()),
+            'message' => 'Producto agregado.',
+        ];
     }
 
     public function update(int $id, array $data): array
@@ -121,9 +148,9 @@ class Producto extends Model
 
         $nombre = $actual['nombre'];
         if (array_key_exists('nombre', $data)) {
-            $nombre = trim((string) $data['nombre']);
+            $nombre = trim(strip_tags((string) $data['nombre']));
             if ($nombre === '') {
-                return ['success' => false, 'error' => 'El nombre del producto es obligatorio y no puede componerse solo de espacios.'];
+                return ['success' => false, 'error' => 'El nombre del producto no puede quedar vacío tras sanitizar etiquetas HTML.'];
             }
             if (mb_strlen($nombre) > 150) {
                 return ['success' => false, 'error' => 'El nombre del producto no puede exceder los 150 caracteres.'];
@@ -158,7 +185,7 @@ class Producto extends Model
 
         $categoria = $actual['categoria'];
         if (array_key_exists('categoria', $data)) {
-            $categoria = trim((string) $data['categoria']);
+            $categoria = trim(strip_tags((string) $data['categoria']));
             if ($categoria === '') {
                 $categoria = $actual['categoria'];
             }
@@ -169,17 +196,19 @@ class Producto extends Model
 
         $imagen = $actual['url_imagen'];
         if (array_key_exists('url_imagen', $data)) {
-            $imagen = trim((string) $data['url_imagen']);
-            if ($imagen === '') {
-                $imagen = self::IMAGEN_DEFAULT;
-            }
+            $imagen = $this->sanitizarUrlImagen((string) $data['url_imagen']);
         }
 
         $st = $this->db->prepare(
             'UPDATE productos SET nombre = ?, precio = ?, stock = ?, url_imagen = ?, categoria = ? WHERE id = ?'
         );
         $st->execute([$nombre, $precio, $stock, $imagen, $categoria, $id]);
-        return ['success' => true, 'data' => $this->getById($id), 'message' => 'Producto actualizado.'];
+
+        return [
+            'success' => true,
+            'data'    => $this->getById($id),
+            'message' => 'Producto actualizado.',
+        ];
     }
 
     public function delete(int $id): array

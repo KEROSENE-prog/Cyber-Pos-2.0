@@ -1,6 +1,7 @@
 <?php
 /**
  * CyberPOS - Controlador Venta (POS). Registra una venta y descuenta stock.
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class VentaController extends Controller
@@ -30,8 +31,9 @@ class VentaController extends Controller
             $this->fail('El carrito está vacío.', 400);
         }
 
-        $clienteRaw = isset($body['cliente']) ? trim((string) $body['cliente']) : '';
-        $cliente = $clienteRaw !== '' ? $clienteRaw : ($user['nombre_completo'] ?? 'Mostrador');
+        $clienteRaw = isset($body['cliente']) ? (string) $body['cliente'] : '';
+        $clienteSan = trim(strip_tags($clienteRaw));
+        $cliente = $clienteSan !== '' ? $clienteSan : ($user['nombre_completo'] ?? 'Mostrador');
         if (mb_strlen($cliente) > 120) {
             $this->fail('El nombre del cliente no puede exceder los 120 caracteres.', 400);
         }
@@ -71,7 +73,7 @@ class VentaController extends Controller
             $subtotal += $precioUnitario * $cantidad;
             $detalle[] = [
                 'id'       => $id,
-                'nombre'   => $prod['nombre'],
+                'nombre'   => strip_tags((string) $prod['nombre']),
                 'cantidad' => $cantidad,
                 'precio'   => $precioUnitario,
             ];

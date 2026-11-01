@@ -2,7 +2,7 @@
  * CyberPOS — dashboard.js v4
  * Monitoreo en tiempo real, KPIs, gestión de equipos y panel de notificaciones admin.
  * Consume el backend PHP a través de apiFetch.
- * Validaciones estrictas de valores límite (Etapa 1).
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 let currentEquipoAccion = null; // { id, nombre, accion }
@@ -111,11 +111,11 @@ function renderizarGrid(equipos) {
             <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px">Tarifa: $${eq.tarifa_por_hora}/h · Total: $${monto}</p>
           ` : ''}
           <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-            <button class="primary btn-agregar-tiempo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:120px">
+            <button type="button" class="primary btn-agregar-tiempo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:120px">
               + Añadir Tiempo
             </button>
-            ${activa || eq.estado === 'finalizada' ? `<button class="danger btn-detener" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:100px">⏹ Detener</button>` : ''}
-            <button class="secondary btn-eliminar-equipo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="padding:8px;font-size:.8rem" title="Eliminar equipo">🗑</button>
+            ${activa || eq.estado === 'finalizada' ? `<button type="button" class="danger btn-detener" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:100px">⏹ Detener</button>` : ''}
+            <button type="button" class="secondary btn-eliminar-equipo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="padding:8px;font-size:.8rem" title="Eliminar equipo">🗑</button>
           </div>
         </section>
       </article>
@@ -369,7 +369,7 @@ function setupModalAgregarEquipo() {
 }
 
 // =========================================================================
-// PANEL DE NOTIFICACIONES ADMIN
+// PANEL DE NOTIFICACIONES ADMIN (inmunidad XSS)
 // =========================================================================
 async function actualizarNotificacionesAdmin() {
   const panel = document.getElementById('panelNotificaciones');
@@ -402,29 +402,31 @@ async function actualizarNotificacionesAdmin() {
     const eq = equipos.find(e => String(e.id) === String(sol.equipo_id));
     const eqNombre = eq ? eq.nombre_equipo : `Equipo #${sol.equipo_id}`;
     const monto = parseFloat(sol.monto || 0);
+    const solId = parseInt(sol.id, 10);
     html += `
       <article class="notif-card" style="background:rgba(37,99,235,.1);border-left:3px solid #2563eb;padding:12px 14px;border-radius:8px;margin-bottom:8px">
         <p style="font-weight:700;font-size:.92rem;margin-bottom:4px">⏱ Solicitud de Tiempo — ${escapeHtml(eqNombre)}</p>
         <p style="font-size:.85rem;color:var(--text-muted)">Cliente: <strong>${escapeHtml(sol.cliente_nombre)}</strong> · +${sol.minutos} min · $${monto.toFixed(2)} / Bs. ${(monto * tasa).toFixed(2)}</p>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="confirmarSolicitudAdmin(${sol.id})">✅ Aprobar y Sumar Tiempo</button>
-          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarSolicitudAdmin(${sol.id})">Cancelar</button>
+          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="confirmarSolicitudAdmin(${solId})">✅ Aprobar y Sumar Tiempo</button>
+          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarSolicitudAdmin(${solId})">Cancelar</button>
         </div>
       </article>`;
   });
 
   pedidos.forEach(ped => {
-    const itemsList = (ped.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    const safeItems = (ped.items || []).map(i => `${escapeHtml(i.nombre)} x${parseInt(i.cantidad, 10) || 1}`).join(', ');
     const totalPed = parseFloat(ped.total || 0);
+    const pedId = parseInt(ped.id, 10);
     html += `
       <article class="notif-card" style="background:rgba(217,119,6,.1);border-left:3px solid #d97706;padding:12px 14px;border-radius:8px;margin-bottom:8px">
         <p style="font-weight:700;font-size:.92rem;margin-bottom:4px">🍔 Pedido — ${escapeHtml(ped.equipo_nombre || 'Mostrador')}</p>
         <p style="font-size:.85rem;color:var(--text-muted)">Cliente: <strong>${escapeHtml(ped.cliente_nombre)}</strong></p>
-        <p style="font-size:.85rem;color:var(--text-muted)">Productos: ${escapeHtml(itemsList)}</p>
+        <p style="font-size:.85rem;color:var(--text-muted)">Productos: ${safeItems}</p>
         <p style="font-size:.85rem;color:var(--brand-primary)">Total: $${totalPed.toFixed(2)} / Bs. ${(totalPed * tasa).toFixed(2)}</p>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="completarPedido(${ped.id})">✅ Completado</button>
-          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarPedido(${ped.id})">Cancelar</button>
+          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="completarPedido(${pedId})">✅ Completado</button>
+          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarPedido(${pedId})">Cancelar</button>
         </div>
       </article>`;
   });
@@ -472,11 +474,22 @@ window.cancelarPedido = async function(id) {
   }
 };
 
+// Helpers seguros contra XSS
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

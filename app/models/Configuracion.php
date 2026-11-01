@@ -1,6 +1,7 @@
 <?php
 /**
  * CyberPOS - Modelo Configuracion (fila unica).
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class Configuracion extends Model
@@ -13,6 +14,18 @@ class Configuracion extends Model
         $c['precio_hora_pc']      = (float) $c['precio_hora_pc'];
         $c['precio_hora_consola'] = (float) $c['precio_hora_consola'];
         return $c;
+    }
+
+    private function sanitizarAvatar(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (!preg_match('/^(https?:\/\/|\/|\.\/|data:image\/[a-zA-Z0-9\+\-\.]+;base64,|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
+            return '';
+        }
+        return $url;
     }
 
     public function get(): array
@@ -55,9 +68,9 @@ class Configuracion extends Model
 
         // Nombre del negocio
         if (array_key_exists('nombre_cyber', $data)) {
-            $nombreCyber = trim((string) $data['nombre_cyber']);
+            $nombreCyber = trim(strip_tags((string) $data['nombre_cyber']));
             if ($nombreCyber === '') {
-                return ['success' => false, 'error' => 'El nombre del negocio no puede estar vacío ni consistir solo de espacios.'];
+                return ['success' => false, 'error' => 'El nombre del negocio no puede estar vacío ni consistir solo de espacios o etiquetas HTML.'];
             }
             if (mb_strlen($nombreCyber) > 150) {
                 return ['success' => false, 'error' => 'El nombre del negocio no puede exceder los 150 caracteres.'];
@@ -81,7 +94,7 @@ class Configuracion extends Model
 
         if (array_key_exists('avatar_url', $data)) {
             $sets[] = 'avatar_url = ?';
-            $params[] = trim((string) $data['avatar_url']);
+            $params[] = $this->sanitizarAvatar((string) $data['avatar_url']);
         }
 
         // Tarifas por hora generales

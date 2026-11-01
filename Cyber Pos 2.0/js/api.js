@@ -1,9 +1,36 @@
 /**
  * CyberPOS — api.js v4
  * Cliente del backend PHP (MVC). Reemplaza al antiguo motor LocalDB.
- * Incluye: Auth, apiFetch (fetch real), toasts, notificaciones de esquina,
- * ticker global (servidor), config global y utilidades.
+ * Incluye: Auth, apiFetch (fetch real), toasts seguros (anti-XSS),
+ * notificaciones de esquina, ticker global (servidor), config global y utilidades.
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
+
+// =========================================================================
+// ESCAPADO Y SANITIZACIÓN GLOBAL CONTRA XSS
+// =========================================================================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+window.escapeHtml = escapeHtml;
+window.escapeAttr = escapeAttr;
 
 // =========================================================================
 // GESTOR DE SESIÓN
@@ -141,7 +168,7 @@ function refrescarConfigGlobal(config) {
 }
 
 // =========================================================================
-// TOASTS (notificaciones breves en esquina superior derecha)
+// TOASTS SEGUROS (uso estricto de textContent para neutralizar XSS)
 // =========================================================================
 function showToast(message, type = 'info', duration = 3000) {
   let container = document.getElementById('toast-container');
@@ -153,10 +180,21 @@ function showToast(message, type = 'info', duration = 3000) {
   }
   const colors = { success: '#16a34a', error: '#991b1b', info: '#2563eb', warning: '#d97706' };
   const icons  = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+
   const toast = document.createElement('div');
   toast.style.cssText = `background:var(--bg-card,#2b2b36);border-left:4px solid ${colors[type]||colors.info};color:var(--text-main,#f8fafc);padding:14px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:flex;align-items:center;gap:10px;font-size:.92rem;font-family:Inter,sans-serif;pointer-events:all;animation:slideIn .3s ease;`;
-  toast.innerHTML = `<span style="font-size:1.1rem">${icons[type]||''}</span><span>${message}</span>`;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.style.fontSize = '1.1rem';
+  iconSpan.textContent = icons[type] || '';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = String(message || '');
+
+  toast.appendChild(iconSpan);
+  toast.appendChild(msgSpan);
   container.appendChild(toast);
+
   setTimeout(() => {
     toast.style.animation = 'fadeOut .3s ease forwards';
     setTimeout(() => toast.remove(), 300);
@@ -164,7 +202,7 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 // =========================================================================
-// NOTIFICACIÓN DE ESQUINA (persistente, para alertas de tiempo)
+// NOTIFICACIÓN DE ESQUINA (segura contra XSS)
 // =========================================================================
 function showCornerNotification(message, equipoId = null) {
   let panel = document.getElementById('corner-notifications');
@@ -176,11 +214,26 @@ function showCornerNotification(message, equipoId = null) {
   }
   const notif = document.createElement('div');
   notif.style.cssText = 'background:linear-gradient(135deg,#991b1b,#7f1d1d);color:#fff;padding:14px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(153,27,27,.5);display:flex;flex-direction:column;gap:6px;font-family:Inter,sans-serif;animation:slideIn .3s ease;border-left:4px solid #fca5a5;';
-  notif.innerHTML = `
-    <span style="font-weight:700;font-size:.95rem">⏰ Tiempo Agotado</span>
-    <span style="font-size:.87rem;opacity:.9">${message}</span>
-    <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8rem;width:fit-content;margin-top:4px;">Cerrar</button>
-  `;
+
+  const titleSpan = document.createElement('span');
+  titleSpan.style.fontWeight = '700';
+  titleSpan.style.fontSize = '.95rem';
+  titleSpan.textContent = '⏰ Tiempo Agotado';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.style.fontSize = '.87rem';
+  msgSpan.style.opacity = '.9';
+  msgSpan.textContent = String(message || '');
+
+  const btn = document.createElement('button');
+  btn.style.cssText = 'background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8rem;width:fit-content;margin-top:4px;';
+  btn.textContent = 'Cerrar';
+  btn.onclick = () => notif.remove();
+
+  notif.appendChild(titleSpan);
+  notif.appendChild(msgSpan);
+  notif.appendChild(btn);
+
   panel.appendChild(notif);
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('⏰ Tiempo Agotado', { body: message, icon: 'logo-laneros.jpg' });
@@ -283,7 +336,6 @@ async function tickEquipos() {
 async function inicializarConfiguracionGlobal() {
   const config = await cargarConfigSistema() || {};
 
-  // Avatar del usuario logueado (prioridad) — ya aplicado en cargarConfigSistema.
   const usuario = Auth.getUser();
   if (usuario && usuario.avatar_url) {
     document.querySelectorAll('img[alt^="Avatar"]').forEach(img => { img.src = usuario.avatar_url; });

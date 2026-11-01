@@ -1,6 +1,7 @@
 <?php
 /**
  * CyberPOS - Modelo Solicitud de tiempo.
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class Solicitud extends Model
@@ -40,7 +41,7 @@ class Solicitud extends Model
             return ['success' => false, 'error' => 'Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).'];
         }
 
-        $clienteNombre = trim($clienteNombre);
+        $clienteNombre = trim(strip_tags($clienteNombre));
         if ($clienteNombre === '') {
             $clienteNombre = 'Cliente';
         }
@@ -73,8 +74,6 @@ class Solicitud extends Model
             return ['success' => false, 'error' => 'La solicitud ya fue cerrada.'];
         }
 
-        // La aprobación del administrador (caja) es definitiva: se suma el
-        // tiempo al equipo y la solicitud queda completada de inmediato.
         if ($quien === 'admin') {
             $this->db->prepare('UPDATE solicitudes_tiempo SET confirmado_admin = 1, estado = "completada" WHERE id = ?')->execute([$id]);
             if ($sol['equipo_id']) {
@@ -83,7 +82,6 @@ class Solicitud extends Model
             return ['success' => true, 'data' => $this->getById($id), 'message' => 'Tiempo otorgado al cliente.'];
         }
 
-        // Confirmación del cliente: informativa (el admin ya cerró la solicitud).
         $this->db->prepare('UPDATE solicitudes_tiempo SET confirmado_cliente = 1 WHERE id = ?')->execute([$id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Confirmación registrada.'];
     }

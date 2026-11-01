@@ -2,7 +2,7 @@
  * CyberPOS — ventas.js v4
  * Módulo POS de ventas: todos los productos, carrito, factura multimoneda.
  * Backend PHP: GET /productos, POST /ventas.
- * Validaciones estrictas de valores límite (Etapa 1).
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 let carritoVentas = [];
@@ -80,14 +80,23 @@ async function cargarProductosVenta(busqueda = '') {
           </p>
         </section>
         <footer class="card-actions">
-          <button type="button" class="primary"
-            onclick="agregarAVentas(${prod.id}, '${prod._origen || 'snacks'}', '${escapeAttr(prod.nombre)}', ${prod.precio})"
+          <button type="button" class="primary btn-agregar-venta"
+            data-id="${prod.id}"
+            data-origen="${escapeAttr(prod._origen || 'snacks')}"
+            data-nombre="${escapeAttr(prod.nombre)}"
+            data-precio="${precio}"
             ${agotado ? 'disabled' : ''}>
             ${agotado ? 'Agotado' : '+ Agregar'}
           </button>
         </footer>
       </article>`;
   }).join('');
+
+  grid.querySelectorAll('.btn-agregar-venta').forEach(btn => {
+    btn.addEventListener('click', () => {
+      agregarAVentas(btn.dataset.id, btn.dataset.origen, btn.dataset.nombre, btn.dataset.precio);
+    });
+  });
 }
 
 // =========================================================================
@@ -248,12 +257,3 @@ document.addEventListener('DOMContentLoaded', () => {
     renderizarCarritoVenta();
   });
 });
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}

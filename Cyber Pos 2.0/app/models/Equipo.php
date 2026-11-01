@@ -2,6 +2,7 @@
 /**
  * CyberPOS - Modelo Equipo (PC / Consola).
  * El tiempo transcurrido se calcula en el servidor a partir de fecha_inicio.
+ * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
  */
 
 class Equipo extends Model
@@ -68,9 +69,11 @@ class Equipo extends Model
 
     public function create(array $data): array
     {
-        $nombre = isset($data['nombre_equipo']) ? trim((string) $data['nombre_equipo']) : '';
+        $nombreRaw = isset($data['nombre_equipo']) ? (string) $data['nombre_equipo'] : '';
+        $nombre    = trim(strip_tags($nombreRaw));
+
         if ($nombre === '') {
-            return ['success' => false, 'error' => 'El nombre del equipo es obligatorio y no puede componerse solo de espacios.'];
+            return ['success' => false, 'error' => 'El nombre del equipo es obligatorio y no puede consistir únicamente en etiquetas HTML o espacios.'];
         }
         if (mb_strlen($nombre) > 100) {
             return ['success' => false, 'error' => 'El nombre del equipo no puede exceder los 100 caracteres.'];
@@ -110,9 +113,9 @@ class Equipo extends Model
         $params = [];
 
         if (isset($data['nombre_equipo'])) {
-            $nombre = trim((string) $data['nombre_equipo']);
+            $nombre = trim(strip_tags((string) $data['nombre_equipo']));
             if ($nombre === '') {
-                return ['success' => false, 'error' => 'El nombre del equipo no puede componerse solo de espacios.'];
+                return ['success' => false, 'error' => 'El nombre del equipo no puede quedar vacío tras sanitizar etiquetas HTML.'];
             }
             if (mb_strlen($nombre) > 100) {
                 return ['success' => false, 'error' => 'El nombre del equipo no puede exceder los 100 caracteres.'];
@@ -158,7 +161,7 @@ class Equipo extends Model
 
     private function registrarSesion(int $equipoId, string $equipoNombre, string $cliente, int $segundos, float $monto): void
     {
-        $cliente = trim($cliente);
+        $cliente = trim(strip_tags($cliente));
         if ($cliente === '') {
             $cliente = 'Cliente';
         }
@@ -166,7 +169,7 @@ class Equipo extends Model
             $cliente = mb_substr($cliente, 0, 120);
         }
 
-        $equipoNombre = trim($equipoNombre);
+        $equipoNombre = trim(strip_tags($equipoNombre));
         if (mb_strlen($equipoNombre) > 100) {
             $equipoNombre = mb_substr($equipoNombre, 0, 100);
         }
@@ -191,7 +194,7 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).'];
         }
 
-        $cliente = trim($cliente);
+        $cliente = trim(strip_tags($cliente));
         $cliente = ($cliente !== '') ? $cliente : 'Cliente';
         if (mb_strlen($cliente) > 120) {
             return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
@@ -224,7 +227,7 @@ class Equipo extends Model
         }
 
         $cliente = ($cliente !== null && trim($cliente) !== '')
-            ? trim($cliente)
+            ? trim(strip_tags($cliente))
             : ($e['cliente'] !== '' && $e['cliente'] !== null ? $e['cliente'] : 'Cliente');
         if (mb_strlen($cliente) > 120) {
             return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
