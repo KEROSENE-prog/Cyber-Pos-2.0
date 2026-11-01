@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Controlador Configuracion.
- * Cero pantallas blancas / cero Error 500 crudo: try/catch global en todos los endpoints (Etapa 3).
- */
+// Controlador de configuración
 
 class ConfigController extends Controller
 {

@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo SesionUso (registro de alquileres y ventas).
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
+// Modelo SesionUso — historial de alquileres y ventas directas.
 
 class SesionUso extends Model
 {

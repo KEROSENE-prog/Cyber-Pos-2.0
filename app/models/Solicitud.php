@@ -1,10 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Solicitud de tiempo.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- * Bloqueo de solicitudes pendientes duplicadas por equipo.
- * Transacción atómica en confirmación admin: UPDATE solicitud + agregarTiempo (Etapa 3).
- */
+// Modelo de solicitudes de tiempo
 
 class Solicitud extends Model
 {
@@ -34,10 +29,6 @@ class Solicitud extends Model
         return $s ? $this->cast($s) : null;
     }
 
-    /**
-     * Verifica si ya hay una solicitud pendiente para el equipo dado.
-     * Previene acumulación de solicitudes pendientes duplicadas por la misma estación.
-     */
     private function tieneSolicitudPendiente(?int $equipoId): bool
     {
         if ($equipoId === null) {
@@ -72,7 +63,7 @@ class Solicitud extends Model
             return ['success' => false, 'error' => 'El monto no puede ser negativo ni inválido.'];
         }
 
-        // ── UNICIDAD OPERATIVA: bloquear solicitud duplicada por equipo ──
+        // Evitar solicitudes duplicadas para la misma estación
         if ($this->tieneSolicitudPendiente($equipoId)) {
             return ['success' => false, 'error' => 'Esta estación ya tiene una solicitud de tiempo pendiente. Espera a que sea aprobada o cancélala antes de enviar otra.'];
         }
@@ -85,13 +76,6 @@ class Solicitud extends Model
         return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Solicitud enviada.'];
     }
 
-    /**
-     * Confirma la solicitud.
-     * Para el admin: TRANSACCIÓN ATÓMICA — marca la solicitud como completada
-     * y agrega el tiempo al equipo. Si cualquiera falla, hace ROLLBACK completo.
-     *
-     * @param string $quien 'admin' o 'cliente'
-     */
     public function confirmar(int $id, string $quien): array
     {
         $sol = $this->getById($id);
@@ -103,7 +87,7 @@ class Solicitud extends Model
         }
 
         if ($quien === 'admin') {
-            // ── TRANSACCIÓN ATÓMICA: marcar solicitud + agregar tiempo ───
+            // Aprobar solicitud y sumar tiempo al equipo
             $this->db->beginTransaction();
             try {
                 $this->db->prepare(
@@ -133,7 +117,6 @@ class Solicitud extends Model
             return ['success' => true, 'data' => $this->getById($id), 'message' => 'Tiempo otorgado al cliente.'];
         }
 
-        // Confirmación del cliente (sin transacción compuesta)
         $this->db->prepare(
             'UPDATE solicitudes_tiempo SET confirmado_cliente = 1 WHERE id = ?'
         )->execute([$id]);

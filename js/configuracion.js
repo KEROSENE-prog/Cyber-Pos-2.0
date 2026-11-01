@@ -1,9 +1,4 @@
-/**
- * CyberPOS — configuracion.js v4
- * Perfil, tema de color y tasa BCV. Persistido en el backend PHP.
- * Validaciones estrictas de valores límite (Etapa 1) e Inmunidad Chaos/XSS (Etapa 2).
- */
-
+// Configuración general: perfil, tema y tasa BCV.
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)

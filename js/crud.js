@@ -1,10 +1,4 @@
-/**
- * CyberPOS — crud.js v4
- * Inventario de Snacks (catálogo estándar) + Catálogo Personalizado.
- * Precio en Bs (tasa BCV) mostrado en gris pequeño debajo del precio USD.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
-
+// Inventario de snacks y productos personalizados.
 let currentEditId   = null;
 let currentDeleteId = null;
 let currentType     = 'snacks'; // 'snacks' | 'personalizados'

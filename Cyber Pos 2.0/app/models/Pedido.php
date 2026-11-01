@@ -1,9 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Pedido de snacks.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- * Transacción atómica con verificación de stock real antes de descontar (Etapa 3).
- */
+// Modelo de pedidos de snacks
 
 class Pedido extends Model
 {
@@ -33,14 +29,6 @@ class Pedido extends Model
         return $p ? $this->cast($p) : null;
     }
 
-    /**
-     * Crea el pedido registrándolo en pedidos_snacks y desconta stock de productos.
-     *
-     * Transacción atómica:
-     *  1. Verifica el stock real disponible de cada ítem DENTRO de la transacción.
-     *  2. Si algún ítem no tiene stock suficiente → ROLLBACK inmediato sin descontar nada.
-     *  3. Si todo está bien → descuenta stock de cada ítem e inserta el pedido → COMMIT.
-     */
     public function crear(?int $equipoId, string $equipoNombre, string $clienteNombre, array $items, float $total): array
     {
         if (empty($items)) {
@@ -80,14 +68,13 @@ class Pedido extends Model
             ];
         }
 
-        // ── TRANSACCIÓN ATÓMICA ──────────────────────────────────────────
+        // Verificar stock disponible y registrar el pedido
         $this->db->beginTransaction();
         try {
-            // 1. Verificar stock real de cada producto dentro de la transacción
             $stStock = $this->db->prepare('SELECT id, nombre, stock FROM productos WHERE id = ?');
             foreach ($itemsSanitizados as $item) {
                 if ($item['id'] <= 0) {
-                    continue; // ítems sin ID registrado (e.g. snacks externos) no descontan stock
+                    continue;
                 }
                 $stStock->execute([$item['id']]);
                 $prod = $stStock->fetch();
@@ -98,7 +85,6 @@ class Pedido extends Model
                 }
             }
 
-            // 2. Descontar stock
             $stDesc = $this->db->prepare(
                 'UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?'
             );
@@ -108,14 +94,12 @@ class Pedido extends Model
                 }
                 $stDesc->execute([$item['cantidad'], $item['id'], $item['cantidad']]);
                 if ($stDesc->rowCount() === 0) {
-                    // La fila no se actualizó: stock insuficiente en el momento exacto (race condition)
                     throw new \RuntimeException(
-                        "Stock insuficiente para el producto #{$item['id']} al momento de descontar (posible concurrencia)."
+                        "Stock insuficiente para el producto #{$item['id']} al momento de descontar."
                     );
                 }
             }
 
-            // 3. Insertar el pedido
             $st = $this->db->prepare(
                 'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
                  VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'

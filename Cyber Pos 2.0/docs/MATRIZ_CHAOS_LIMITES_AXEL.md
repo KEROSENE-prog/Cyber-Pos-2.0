@@ -100,3 +100,4 @@
 
 > [!TIP]
 > Para ejecutar pruebas automatizadas rápidas, usa `curl` o Postman con el token de sesión del administrador. Ejemplo: `curl -X POST http://localhost/api/snacks -H "X-Auth-Token: TU_TOKEN" -d '{"nombre":" ","precio":-1}'`
+

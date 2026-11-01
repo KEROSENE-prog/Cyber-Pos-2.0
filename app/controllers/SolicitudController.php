@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Controlador Solicitud de tiempo.
- * Cero pantallas blancas / cero Error 500 crudo: try/catch global en todos los endpoints (Etapa 3).
- */
+// Controlador de solicitudes de tiempo
 
 class SolicitudController extends Controller
 {
@@ -22,7 +19,6 @@ class SolicitudController extends Controller
             $this->requireAuth();
             $b = $this->body();
 
-            // Validar minutos
             if (!isset($b['minutos']) || !is_numeric($b['minutos'])) {
                 $this->fail('Minutos de alquiler inválidos: debe ser un número entero.', 400);
             }
@@ -38,7 +34,6 @@ class SolicitudController extends Controller
                 $this->fail('Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).', 400);
             }
 
-            // Validar cliente_nombre
             $clienteNombre = trim((string) ($b['cliente_nombre'] ?? 'Cliente'));
             if ($clienteNombre === '') {
                 $clienteNombre = 'Cliente';
@@ -47,7 +42,6 @@ class SolicitudController extends Controller
                 $this->fail('El nombre del cliente no puede exceder los 120 caracteres.', 400);
             }
 
-            // Validar monto
             $montoRaw = $b['monto'] ?? 0;
             if (!is_numeric($montoRaw)) {
                 $this->fail('Monto inválido: debe ser un valor numérico.', 400);

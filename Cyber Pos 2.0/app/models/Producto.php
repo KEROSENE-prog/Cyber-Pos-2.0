@@ -1,9 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Producto.
- * Une el catalogo estandar ("snacks") y el personalizado mediante la columna origen.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
+// Modelo Producto — catálogo snacks y personalizados (columna 'origen').
 
 class Producto extends Model
 {
@@ -23,7 +19,7 @@ class Producto extends Model
         if ($url === '') {
             return self::IMAGEN_DEFAULT;
         }
-        // Bloquear esquemas peligrosos como javascript:, data: o vbscript:
+        // bloquea javascript:, data:text/html y similares
         if (!preg_match('/^(https?:\/\/|\/|\.\/|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
             return self::IMAGEN_DEFAULT;
         }
@@ -60,7 +56,7 @@ class Producto extends Model
         return $p ? $this->cast($p) : null;
     }
 
-    /** Todos los productos (snacks + personalizados) con su origen, para el POS. */
+    // Todos los productos (snacks + personalizados) con su origen, para el POS.
     public function getAllUnificados(string $busqueda = ''): array
     {
         $sql    = 'SELECT * FROM productos';
@@ -220,7 +216,7 @@ class Producto extends Model
         return ['success' => true, 'message' => 'Producto eliminado.'];
     }
 
-    /** Reduce stock. Devuelve false si no hay suficiente o si la cantidad es invalida. */
+    // Reduce stock. Devuelve false si no hay suficiente o si la cantidad es inválida.
     public function reducirStock(int $id, int $cantidad): bool
     {
         if ($cantidad <= 0) {

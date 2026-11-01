@@ -1,10 +1,5 @@
 <?php
-/**
- * CyberPOS - Controlador Venta (POS). Registra una venta y descuenta stock.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- * Transacción atómica BEGIN/COMMIT/ROLLBACK con verificación de stock real (Etapa 3).
- * Cero pantallas blancas / cero Error 500 crudo: try/catch global (Etapa 3).
- */
+// Controlador de ventas POS
 
 class VentaController extends Controller
 {
@@ -49,7 +44,6 @@ class VentaController extends Controller
             $subtotal = 0.0;
             $detalle  = [];
 
-            // Validación previa de estructura del carrito (fuera de la transacción)
             foreach ($items as $item) {
                 if (!is_array($item)) {
                     $this->fail('Formato de artículo inválido en el carrito.', 400);
@@ -84,10 +78,9 @@ class VentaController extends Controller
                 ];
             }
 
-            // ── TRANSACCIÓN ATÓMICA: verificar stock real + descontar + registrar venta ──
+            // Verificar stock y procesar cobro
             $this->dbBegin();
 
-            // Re-verificar stock dentro de la transacción para evitar race conditions
             foreach ($detalle as $item) {
                 $stCheck = Database::get()->prepare(
                     'SELECT stock FROM productos WHERE id = ? FOR UPDATE'
@@ -104,7 +97,6 @@ class VentaController extends Controller
                 }
             }
 
-            // Descontar stock de cada ítem (ahora con bloqueo garantizado)
             foreach ($detalle as $item) {
                 $reducido = $producto->reducirStock($item['id'], $item['cantidad']);
                 if (!$reducido) {

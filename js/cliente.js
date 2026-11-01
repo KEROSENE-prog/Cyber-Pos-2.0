@@ -1,10 +1,4 @@
-/**
- * CyberPOS — cliente.js v4
- * Vista cliente: tiempo restante, solicitud de tiempo, pedido de snacks con carrito.
- * Backend PHP: /equipos, /productos, /solicitudes, /pedidos, /config.
- * Validaciones estrictas de valores límite (Etapa 1) e inmunidad Chaos/XSS (Etapa 2).
- */
-
+// Vista cliente: estado de tiempo, solicitud de minutos y pedido de snacks.
 let carrito      = [];
 let miEquipoId   = null;
 let ultimaSolicitudPendienteId = null;

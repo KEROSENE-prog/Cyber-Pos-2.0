@@ -1,10 +1,4 @@
-/**
- * CyberPOS — ventas.js v4
- * Módulo POS de ventas: todos los productos, carrito, factura multimoneda.
- * Backend PHP: GET /productos, POST /ventas.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
-
+// Punto de venta (POS): catálogo, carrito y cobro.
 let carritoVentas = [];
 let IVA_RATE = 0.16;
 

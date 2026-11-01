@@ -1,14 +1,4 @@
-/**
- * CyberPOS — api.js v4
- * Cliente del backend PHP (MVC). Reemplaza al antiguo motor LocalDB.
- * Incluye: Auth, apiFetch (fetch real), toasts seguros (anti-XSS),
- * notificaciones de esquina, ticker global (servidor), config global y utilidades.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
-
-// =========================================================================
-// ESCAPADO Y SANITIZACIÓN GLOBAL CONTRA XSS
-// =========================================================================
+// Utilidades de API, sesión y helpers visuales.
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -36,14 +26,14 @@ window.escapeAttr = escapeAttr;
 // GESTOR DE SESIÓN
 // =========================================================================
 const Auth = {
-  getToken()  { return localStorage.getItem('cyberpos_token') || null; },
-  getUser()   {
+  getToken() { return localStorage.getItem('cyberpos_token') || null; },
+  getUser() {
     const raw = localStorage.getItem('cyberpos_user');
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   },
   setSession(user, token) {
     if (token) localStorage.setItem('cyberpos_token', token);
-    if (user)  localStorage.setItem('cyberpos_user', JSON.stringify(user));
+    if (user) localStorage.setItem('cyberpos_user', JSON.stringify(user));
   },
   clearSession() {
     localStorage.removeItem('cyberpos_token');
@@ -51,7 +41,7 @@ const Auth = {
   },
   isAuthenticated() { return !!this.getToken(); },
   requireAuth(allowedRole = null) {
-    const user  = this.getUser();
+    const user = this.getUser();
     const token = this.getToken();
     if (!token || !user) { window.location.href = 'login.html'; return false; }
     if (allowedRole && user.rol !== allowedRole && user.rol !== 'administrador') {
@@ -70,10 +60,10 @@ const API_BASE = 'api/index.php';
 
 async function apiFetch(endpoint, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
-  const raw    = String(endpoint).replace(/^\//, '');
+  const raw = String(endpoint).replace(/^\//, '');
   const qIndex = raw.indexOf('?');
-  const path   = qIndex === -1 ? raw : raw.slice(0, qIndex);
-  const query  = qIndex === -1 ? ''  : raw.slice(qIndex + 1);
+  const path = qIndex === -1 ? raw : raw.slice(0, qIndex);
+  const query = qIndex === -1 ? '' : raw.slice(qIndex + 1);
 
   let url = `${API_BASE}?r=${encodeURIComponent(path)}`;
   if (query) url += `&${query}`;
@@ -138,7 +128,7 @@ function aplicarConfigVisual(config) {
     document.documentElement.style.setProperty('--brand-primary', config.theme_color);
   }
   const usuario = Auth.getUser();
-  const avatar  = (usuario && usuario.avatar_url) || config.avatar_url;
+  const avatar = (usuario && usuario.avatar_url) || config.avatar_url;
   if (avatar) {
     document.querySelectorAll('img[alt^="Avatar"]').forEach(img => { img.src = avatar; });
   }
@@ -179,10 +169,10 @@ function showToast(message, type = 'info', duration = 3000) {
     document.body.appendChild(container);
   }
   const colors = { success: '#16a34a', error: '#991b1b', info: '#2563eb', warning: '#d97706' };
-  const icons  = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
 
   const toast = document.createElement('div');
-  toast.style.cssText = `background:var(--bg-card,#2b2b36);border-left:4px solid ${colors[type]||colors.info};color:var(--text-main,#f8fafc);padding:14px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:flex;align-items:center;gap:10px;font-size:.92rem;font-family:Inter,sans-serif;pointer-events:all;animation:slideIn .3s ease;`;
+  toast.style.cssText = `background:var(--bg-card,#2b2b36);border-left:4px solid ${colors[type] || colors.info};color:var(--text-main,#f8fafc);padding:14px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:flex;align-items:center;gap:10px;font-size:.92rem;font-family:Inter,sans-serif;pointer-events:all;animation:slideIn .3s ease;`;
 
   const iconSpan = document.createElement('span');
   iconSpan.style.fontSize = '1.1rem';
@@ -291,7 +281,7 @@ let __tickContador = 0;
 async function tickEquipos() {
   if (!Auth.isAuthenticated()) return;
   try {
-    const res     = await apiFetch('/equipos');
+    const res = await apiFetch('/equipos');
     const equipos = res.data || [];
     window.__equiposCache = equipos;
 
@@ -343,11 +333,11 @@ async function inicializarConfiguracionGlobal() {
 
   // Actualización automática de la tasa BCV (solo admin, si no es manual y >3h).
   if (!config.tasa_manual && usuario && usuario.rol === 'administrador') {
-    const ahora  = Date.now();
+    const ahora = Date.now();
     const ultima = config.ultima_actualizacion_tasa ? new Date(config.ultima_actualizacion_tasa.replace(' ', 'T')).getTime() : 0;
     if ((ahora - ultima) > 3 * 60 * 60 * 1000) {
       try {
-        const res  = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(5000) });
+        const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           const d = await res.json();
           const tasa = d.promedio || d.precio;
@@ -362,7 +352,7 @@ async function inicializarConfiguracionGlobal() {
 
   // Permiso de notificaciones
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().catch(() => { });
   }
 
   // Ticker global (cada segundo)

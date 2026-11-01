@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Configuracion (fila unica).
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
+// Modelo Configuracion — fila única de ajustes globales del sistema.
 
 class Configuracion extends Model
 {
@@ -47,7 +44,6 @@ class Configuracion extends Model
         $sets   = [];
         $params = [];
 
-        // Tasa BCV
         if (array_key_exists('tasa_bcv', $data)) {
             if (!is_numeric($data['tasa_bcv'])) {
                 return ['success' => false, 'error' => 'Tasa BCV inválida: debe ser un valor numérico.'];

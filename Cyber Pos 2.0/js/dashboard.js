@@ -1,10 +1,4 @@
-/**
- * CyberPOS — dashboard.js v4
- * Monitoreo en tiempo real, KPIs, gestión de equipos y panel de notificaciones admin.
- * Consume el backend PHP a través de apiFetch.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
-
+// Panel de control: monitoreo de equipos, pedidos y solicitudes.
 let currentEquipoAccion = null; // { id, nombre, accion }
 
 document.addEventListener('DOMContentLoaded', async () => {

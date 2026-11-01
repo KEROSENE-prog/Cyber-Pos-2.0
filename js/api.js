@@ -1,14 +1,4 @@
-/**
- * CyberPOS — api.js v4
- * Cliente del backend PHP (MVC). Reemplaza al antiguo motor LocalDB.
- * Incluye: Auth, apiFetch (fetch real), toasts seguros (anti-XSS),
- * notificaciones de esquina, ticker global (servidor), config global y utilidades.
- * Inmunidad ante SQLi y sanitización XSS (Etapa 2).
- */
-
-// =========================================================================
-// ESCAPADO Y SANITIZACIÓN GLOBAL CONTRA XSS
-// =========================================================================
+// Utilidades de API, sesión y helpers visuales.
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)

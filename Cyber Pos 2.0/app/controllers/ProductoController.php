@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Controlador Producto (snacks y personalizados).
- * Cero pantallas blancas / cero Error 500 crudo: try/catch global en todos los endpoints (Etapa 3).
- */
+// Controlador de productos y catálogo
 
 class ProductoController extends Controller
 {
@@ -14,7 +11,6 @@ class ProductoController extends Controller
         ];
     }
 
-    // ---- Snacks (catálogo estándar) ----
     public function snacksIndex(): void
     {
         try {
@@ -40,7 +36,6 @@ class ProductoController extends Controller
         }
     }
 
-    // ---- Personalizados ----
     public function persIndex(): void
     {
         try {
@@ -66,7 +61,6 @@ class ProductoController extends Controller
         }
     }
 
-    // ---- Comunes ----
     public function update($id): void
     {
         try {
@@ -101,7 +95,6 @@ class ProductoController extends Controller
         }
     }
 
-    // ---- Catálogo unificado para cliente (snacks + personalizados) ----
     public function catalogoIndex(): void
     {
         try {

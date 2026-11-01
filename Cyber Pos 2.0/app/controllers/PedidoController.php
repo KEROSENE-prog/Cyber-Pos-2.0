@@ -1,8 +1,5 @@
 <?php
-/**
- * CyberPOS - Controlador Pedido de snacks.
- * Cero pantallas blancas / cero Error 500 crudo: try/catch global en todos los endpoints (Etapa 3).
- */
+// Controlador de pedidos de snacks
 
 class PedidoController extends Controller
 {
