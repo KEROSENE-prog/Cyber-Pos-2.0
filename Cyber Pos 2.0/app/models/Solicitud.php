@@ -33,11 +33,30 @@ class Solicitud extends Model
 
     public function crear(?int $equipoId, ?int $clienteId, string $clienteNombre, int $minutos, float $monto): array
     {
+        if ($minutos <= 0) {
+            return ['success' => false, 'error' => 'Minutos de alquiler inválidos: debe ser mayor a 0.'];
+        }
+        if ($minutos > 1440) {
+            return ['success' => false, 'error' => 'Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).'];
+        }
+
+        $clienteNombre = trim($clienteNombre);
+        if ($clienteNombre === '') {
+            $clienteNombre = 'Cliente';
+        }
+        if (mb_strlen($clienteNombre) > 120) {
+            return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
+        }
+
+        if ($monto < 0 || is_nan($monto) || is_infinite($monto)) {
+            return ['success' => false, 'error' => 'El monto no puede ser negativo ni inválido.'];
+        }
+
         $st = $this->db->prepare(
             'INSERT INTO solicitudes_tiempo (equipo_id, cliente_id, cliente_nombre, minutos, monto, estado, confirmado_admin, confirmado_cliente, fecha)
              VALUES (?, ?, ?, ?, ?, "pendiente", 0, 0, NOW())'
         );
-        $st->execute([$equipoId, $clienteId, $clienteNombre, $minutos, $monto]);
+        $st->execute([$equipoId, $clienteId, $clienteNombre, $minutos, round($monto, 2)]);
         return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Solicitud enviada.'];
     }
 

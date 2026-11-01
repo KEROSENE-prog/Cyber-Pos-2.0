@@ -39,6 +39,15 @@ class SesionUso extends Model
 
     public function registrarVenta(string $cliente, float $monto, array $items = []): int
     {
+        $cliente = trim($cliente);
+        if ($cliente === '') {
+            $cliente = 'Mostrador';
+        }
+        if (mb_strlen($cliente) > 120) {
+            $cliente = mb_substr($cliente, 0, 120);
+        }
+        $monto = max(0.0, round($monto, 2));
+
         $detalle = $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null;
         $st = $this->db->prepare(
             'INSERT INTO sesiones_uso (equipo_id, equipo_nombre, cliente, segundos_alquilados, monto_cobrado, tipo_registro, detalle, fecha_registro)
@@ -48,17 +57,28 @@ class SesionUso extends Model
         return (int) $this->db->lastInsertId();
     }
 
-    public function historialVentas(int $limit = 200): array
+    public function historialVentas(int $limit = 200, ?string $desde = null, ?string $hasta = null): array
     {
         $limit = max(1, min(500, $limit));
-        $rows = $this->db
-            ->query(
-                'SELECT s.*, e.tipo AS equipo_tipo
-                 FROM sesiones_uso s
-                 LEFT JOIN equipos e ON e.id = s.equipo_id
-                 ORDER BY s.id DESC LIMIT ' . $limit
-            )
-            ->fetchAll();
-        return array_map([$this, 'cast'], $rows);
+        $sql = 'SELECT s.*, e.tipo AS equipo_tipo
+                FROM sesiones_uso s
+                LEFT JOIN equipos e ON e.id = s.equipo_id';
+        $where = [];
+        $params = [];
+        if ($desde) {
+            $where[] = 'DATE(s.fecha_registro) >= ?';
+            $params[] = $desde;
+        }
+        if ($hasta) {
+            $where[] = 'DATE(s.fecha_registro) <= ?';
+            $params[] = $hasta;
+        }
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+        $sql .= ' ORDER BY s.id DESC LIMIT ' . (int) $limit;
+        $st = $this->db->prepare($sql);
+        $st->execute($params);
+        return array_map([$this, 'cast'], $st->fetchAll());
     }
 }

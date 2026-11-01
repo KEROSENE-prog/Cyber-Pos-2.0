@@ -271,8 +271,8 @@
           <button type="button" class="secondary preset-btn" data-min="60">1 hora</button>
         </section>
         <p class="form-group">
-          <label for="minutosSolicitud">Minutos Personalizados</label>
-          <input type="number" id="minutosSolicitud" min="5" placeholder="Ej. 30" required>
+          <label for="minutosSolicitud">Minutos Personalizados (5 - 1440)</label>
+          <input type="number" id="minutosSolicitud" min="5" max="1440" step="1" placeholder="Ej. 30" required>
         </p>
         <p style="font-size:.9rem;color:var(--text-muted)">Monto estimado: <strong id="montoEstimadoTexto" style="color:var(--brand-primary)">$0.00</strong></p>
       </fieldset>

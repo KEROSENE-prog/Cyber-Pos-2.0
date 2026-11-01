@@ -33,11 +33,35 @@ class Pedido extends Model
 
     public function crear(?int $equipoId, string $equipoNombre, string $clienteNombre, array $items, float $total): array
     {
+        if (empty($items)) {
+            return ['success' => false, 'error' => 'El pedido debe contener al menos un producto.'];
+        }
+
+        $equipoNombre = trim($equipoNombre);
+        if ($equipoNombre === '') {
+            $equipoNombre = 'Mostrador';
+        }
+        if (mb_strlen($equipoNombre) > 100) {
+            return ['success' => false, 'error' => 'El nombre del equipo no puede exceder los 100 caracteres.'];
+        }
+
+        $clienteNombre = trim($clienteNombre);
+        if ($clienteNombre === '') {
+            $clienteNombre = 'Cliente';
+        }
+        if (mb_strlen($clienteNombre) > 120) {
+            return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
+        }
+
+        if ($total < 0 || is_nan($total) || is_infinite($total)) {
+            return ['success' => false, 'error' => 'El total del pedido no puede ser negativo ni inválido.'];
+        }
+
         $st = $this->db->prepare(
             'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
              VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'
         );
-        $st->execute([$equipoId, $equipoNombre, $clienteNombre, json_encode($items, JSON_UNESCAPED_UNICODE), $total]);
+        $st->execute([$equipoId, $equipoNombre, $clienteNombre, json_encode($items, JSON_UNESCAPED_UNICODE), round($total, 2)]);
         return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Pedido enviado.'];
     }
 
@@ -46,6 +70,7 @@ class Pedido extends Model
         if (!$this->getById($id)) {
             return ['success' => false, 'error' => 'Pedido no encontrado.'];
         }
+        $estado = in_array($estado, ['pendiente', 'completado', 'cancelado'], true) ? $estado : 'pendiente';
         $st = $this->db->prepare('UPDATE pedidos_snacks SET estado = ? WHERE id = ?');
         $st->execute([$estado, $id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Pedido actualizado.'];

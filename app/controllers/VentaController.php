@@ -10,7 +10,15 @@ class VentaController extends Controller
     public function index(): void
     {
         $this->requireAdmin();
-        $this->ok((new SesionUso())->historialVentas());
+        $desde = $this->input('desde');
+        $hasta = $this->input('hasta');
+        if ($desde !== null && $desde !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $desde)) {
+            $this->fail('Formato de fecha "desde" inválido (debe ser YYYY-MM-DD).', 400);
+        }
+        if ($hasta !== null && $hasta !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $hasta)) {
+            $this->fail('Formato de fecha "hasta" inválido (debe ser YYYY-MM-DD).', 400);
+        }
+        $this->ok((new SesionUso())->historialVentas(200, $desde ? (string) $desde : null, $hasta ? (string) $hasta : null));
     }
 
     public function store(): void
@@ -22,42 +30,70 @@ class VentaController extends Controller
             $this->fail('El carrito está vacío.', 400);
         }
 
+        $clienteRaw = isset($body['cliente']) ? trim((string) $body['cliente']) : '';
+        $cliente = $clienteRaw !== '' ? $clienteRaw : ($user['nombre_completo'] ?? 'Mostrador');
+        if (mb_strlen($cliente) > 120) {
+            $this->fail('El nombre del cliente no puede exceder los 120 caracteres.', 400);
+        }
+
         $producto = new Producto();
         $subtotal = 0.0;
         $detalle  = [];
+
         foreach ($items as $item) {
-            $id       = (int) ($item['id'] ?? 0);
-            $cantidad = (int) ($item['cantidad'] ?? 0);
-            if ($id <= 0 || $cantidad <= 0) {
-                continue;
+            if (!is_array($item)) {
+                $this->fail('Formato de artículo inválido en el carrito.', 400);
             }
+            if (!isset($item['id']) || !is_numeric($item['id']) || (int) $item['id'] <= 0) {
+                $this->fail('Identificador de producto inválido en el carrito.', 400);
+            }
+            $id = (int) $item['id'];
+
+            if (!isset($item['cantidad']) || !is_numeric($item['cantidad'])) {
+                $this->fail('Cantidad inválida en el carrito: debe ser un número entero.', 400);
+            }
+            $cantFloat = (float) $item['cantidad'];
+            if (floor($cantFloat) != $cantFloat || (int) $cantFloat <= 0) {
+                $this->fail('Cantidad de compra inválida: debe ser un número entero mayor a 0 sin decimales.', 400);
+            }
+            $cantidad = (int) $cantFloat;
+
             $prod = $producto->getById($id);
-            if ($prod) {
-                $subtotal += $prod['precio'] * $cantidad;
-                $detalle[] = [
-                    'id'       => $id,
-                    'nombre'   => $prod['nombre'],
-                    'cantidad' => $cantidad,
-                    'precio'   => (float) $prod['precio'],
-                ];
+            if (!$prod) {
+                $this->fail("El producto con ID #{$id} no existe.", 400);
             }
+
+            if ($prod['stock'] < $cantidad) {
+                $this->fail("Stock insuficiente para '{$prod['nombre']}': disponible {$prod['stock']}, solicitado {$cantidad}.", 400);
+            }
+
+            $precioUnitario = (float) $prod['precio'];
+            $subtotal += $precioUnitario * $cantidad;
+            $detalle[] = [
+                'id'       => $id,
+                'nombre'   => $prod['nombre'],
+                'cantidad' => $cantidad,
+                'precio'   => $precioUnitario,
+            ];
         }
 
         $this->dbBegin();
         try {
-            foreach ($items as $item) {
-                $producto->reducirStock((int) $item['id'], (int) $item['cantidad']);
+            foreach ($detalle as $item) {
+                $reducido = $producto->reducirStock($item['id'], $item['cantidad']);
+                if (!$reducido) {
+                    throw new Exception("Stock insuficiente para el producto '{$item['nombre']}'.");
+                }
             }
             $impuesto = round($subtotal * self::IVA, 2);
             $total    = round($subtotal + $impuesto, 2);
 
-            $cliente = $body['cliente'] ?? ($user['nombre_completo'] ?? 'Mostrador');
             $ventaId = (new SesionUso())->registrarVenta($cliente, $total, $detalle);
             $this->dbCommit();
 
             $this->json([
                 'success'  => true,
-                'message'  => 'Venta registrada.',
+                'message'  => 'Venta registrada con éxito.',
                 'venta_id' => $ventaId,
                 'subtotal' => round($subtotal, 2),
                 'impuesto' => $impuesto,
@@ -65,7 +101,7 @@ class VentaController extends Controller
             ], 200);
         } catch (Throwable $e) {
             $this->dbRollback();
-            $this->fail('Error al registrar la venta: ' . $e->getMessage(), 500);
+            $this->fail('Error al registrar la venta: ' . $e->getMessage(), 400);
         }
     }
 

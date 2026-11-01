@@ -2,6 +2,7 @@
  * CyberPOS — ventas.js v4
  * Módulo POS de ventas: todos los productos, carrito, factura multimoneda.
  * Backend PHP: GET /productos, POST /ventas.
+ * Validaciones estrictas de valores límite (Etapa 1).
  */
 
 let carritoVentas = [];
@@ -51,7 +52,7 @@ async function cargarProductosVenta(busqueda = '') {
 
   const tasa = getTasaBCV();
 
-  if (productos.length === 0) {
+  if (!Array.isArray(productos) || productos.length === 0) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);background:var(--bg-card);border-radius:12px;border:1px dashed var(--border-color)">
       <p style="font-size:1.1rem">No se encontraron productos.</p>
     </div>`;
@@ -59,9 +60,9 @@ async function cargarProductosVenta(busqueda = '') {
   }
 
   grid.innerHTML = productos.map(prod => {
-    const precio   = parseFloat(prod.precio).toFixed(2);
+    const precio   = parseFloat(prod.precio || 0).toFixed(2);
     const precioBs = (parseFloat(precio) * tasa).toFixed(2);
-    const agotado  = prod.stock <= 0;
+    const agotado  = (parseInt(prod.stock || 0, 10)) <= 0;
     const img      = prod.url_imagen || 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80';
     return `
       <article class="snack-card" style="${agotado ? 'opacity:.55' : ''}">
@@ -93,25 +94,46 @@ async function cargarProductosVenta(busqueda = '') {
 // CARRITO DE VENTAS
 // =========================================================================
 function agregarAVentas(id, origen, nombre, precio) {
-  const existente = carritoVentas.find(i => String(i.id) === String(id) && i.origen === origen);
+  const precioNum = Number(precio);
+  if (isNaN(precioNum) || precioNum <= 0) {
+    showToast('Precio de producto inválido.', 'error');
+    return;
+  }
+  const idNum = parseInt(id, 10);
+  if (isNaN(idNum) || idNum <= 0) {
+    showToast('Identificador de producto inválido.', 'error');
+    return;
+  }
+
+  const existente = carritoVentas.find(i => String(i.id) === String(idNum) && i.origen === origen);
   if (existente) {
-    existente.cantidad += 1;
+    existente.cantidad = Math.floor(existente.cantidad) + 1;
   } else {
-    carritoVentas.push({ id, origen, nombre, precio: parseFloat(precio), cantidad: 1 });
+    carritoVentas.push({ id: idNum, origen, nombre: String(nombre).trim(), precio: precioNum, cantidad: 1 });
   }
   renderizarCarritoVenta();
   showToast(`"${nombre}" agregado`, 'info', 1200);
 }
 
 function cambiarCantidadVenta(idx, delta) {
-  carritoVentas[idx].cantidad += delta;
-  if (carritoVentas[idx].cantidad <= 0) carritoVentas.splice(idx, 1);
+  if (!carritoVentas[idx]) return;
+  const deltaInt = parseInt(delta, 10);
+  if (isNaN(deltaInt)) return;
+
+  const nuevaCant = Math.floor(carritoVentas[idx].cantidad) + deltaInt;
+  if (nuevaCant <= 0) {
+    carritoVentas.splice(idx, 1);
+  } else {
+    carritoVentas[idx].cantidad = nuevaCant;
+  }
   renderizarCarritoVenta();
 }
 
 function quitarDeVentas(idx) {
-  carritoVentas.splice(idx, 1);
-  renderizarCarritoVenta();
+  if (carritoVentas[idx]) {
+    carritoVentas.splice(idx, 1);
+    renderizarCarritoVenta();
+  }
 }
 
 function renderizarCarritoVenta() {
@@ -131,16 +153,16 @@ function renderizarCarritoVenta() {
     <li style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color)">
       <span style="flex:1;font-size:.9rem">${escapeHtml(item.nombre)}</span>
       <span style="display:flex;align-items:center;gap:6px">
-        <button onclick="cambiarCantidadVenta(${i}, -1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
+        <button type="button" onclick="cambiarCantidadVenta(${i}, -1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
         <span style="min-width:20px;text-align:center">${item.cantidad}</span>
-        <button onclick="cambiarCantidadVenta(${i}, 1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
+        <button type="button" onclick="cambiarCantidadVenta(${i}, 1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
         <strong style="min-width:60px;text-align:right;color:var(--brand-primary)">$${(item.precio * item.cantidad).toFixed(2)}</strong>
-        <button onclick="quitarDeVentas(${i})" style="background:none;border:none;color:#f87171;cursor:pointer">✕</button>
+        <button type="button" onclick="quitarDeVentas(${i})" style="background:none;border:none;color:#f87171;cursor:pointer">✕</button>
       </span>
     </li>
   `).join('');
 
-  const subtotal = carritoVentas.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
+  const subtotal = carritoVentas.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
   const impuesto = subtotal * IVA_RATE;
   const total    = subtotal + impuesto;
 
@@ -161,11 +183,23 @@ function actualizarResumen(subtotal, impuesto, total, tasa) {
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnFinalizarVenta')?.addEventListener('click', async () => {
-    if (carritoVentas.length === 0) return;
+    if (carritoVentas.length === 0) {
+      showToast('El carrito está vacío.', 'error');
+      return;
+    }
+
+    // Validar ítems del carrito estrictamente
+    for (const item of carritoVentas) {
+      if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) {
+        showToast(`Cantidad inválida para "${item.nombre}". Debe ser un número entero mayor a 0.`, 'error');
+        return;
+      }
+    }
+
     const btn = document.getElementById('btnFinalizarVenta');
     if (btn) btn.disabled = true;
 
-    const items = carritoVentas.map(i => ({ id: parseInt(i.id, 10), cantidad: i.cantidad }));
+    const items = carritoVentas.map(i => ({ id: parseInt(i.id, 10), cantidad: Math.floor(i.cantidad) }));
     try {
       const res = await apiFetch('/ventas', { method: 'POST', body: JSON.stringify({ items }) });
       const total = parseFloat(res.total || 0);

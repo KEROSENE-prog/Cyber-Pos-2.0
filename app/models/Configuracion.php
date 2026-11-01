@@ -7,10 +7,10 @@ class Configuracion extends Model
 {
     private function cast(array $c): array
     {
-        $c['id']                = (int) $c['id'];
-        $c['tasa_bcv']          = (float) $c['tasa_bcv'];
-        $c['tasa_manual']       = (bool) $c['tasa_manual'];
-        $c['precio_hora_pc']    = (float) $c['precio_hora_pc'];
+        $c['id']                  = (int) $c['id'];
+        $c['tasa_bcv']            = (float) $c['tasa_bcv'];
+        $c['tasa_manual']         = (bool) $c['tasa_manual'];
+        $c['precio_hora_pc']      = (float) $c['precio_hora_pc'];
         $c['precio_hora_consola'] = (float) $c['precio_hora_consola'];
         return $c;
     }
@@ -34,38 +34,79 @@ class Configuracion extends Model
         $sets   = [];
         $params = [];
 
-        if (isset($data['tasa_bcv'])) {
+        // Tasa BCV
+        if (array_key_exists('tasa_bcv', $data)) {
+            if (!is_numeric($data['tasa_bcv'])) {
+                return ['success' => false, 'error' => 'Tasa BCV inválida: debe ser un valor numérico.'];
+            }
             $tasa = (float) $data['tasa_bcv'];
-            if ($tasa <= 0) {
-                return ['success' => false, 'error' => 'La tasa debe ser mayor a 0.'];
+            if (is_nan($tasa) || is_infinite($tasa) || $tasa <= 0) {
+                return ['success' => false, 'error' => 'Tasa BCV inválida: debe ser mayor a 0.'];
             }
             $sets[] = 'tasa_bcv = ?';
-            $params[] = $tasa;
+            $params[] = round($tasa, 2);
             $sets[] = 'ultima_actualizacion_tasa = NOW()';
         }
+
         if (array_key_exists('tasa_manual', $data)) {
             $sets[] = 'tasa_manual = ?';
             $params[] = $data['tasa_manual'] ? 1 : 0;
         }
-        if (isset($data['nombre_cyber'])) {
+
+        // Nombre del negocio
+        if (array_key_exists('nombre_cyber', $data)) {
+            $nombreCyber = trim((string) $data['nombre_cyber']);
+            if ($nombreCyber === '') {
+                return ['success' => false, 'error' => 'El nombre del negocio no puede estar vacío ni consistir solo de espacios.'];
+            }
+            if (mb_strlen($nombreCyber) > 150) {
+                return ['success' => false, 'error' => 'El nombre del negocio no puede exceder los 150 caracteres.'];
+            }
             $sets[] = 'nombre_cyber = ?';
-            $params[] = (string) $data['nombre_cyber'];
+            $params[] = $nombreCyber;
         }
+
+        // Color del tema
         if (array_key_exists('theme_color', $data)) {
+            $color = trim((string) $data['theme_color']);
+            if ($color !== '' && !preg_match('/^#[0-9a-fA-F]{3,8}$/', $color)) {
+                return ['success' => false, 'error' => 'Formato de color hexadecimal inválido.'];
+            }
+            if (mb_strlen($color) > 20) {
+                return ['success' => false, 'error' => 'El código de color no puede exceder los 20 caracteres.'];
+            }
             $sets[] = 'theme_color = ?';
-            $params[] = (string) $data['theme_color'];
+            $params[] = $color;
         }
+
         if (array_key_exists('avatar_url', $data)) {
             $sets[] = 'avatar_url = ?';
-            $params[] = (string) $data['avatar_url'];
+            $params[] = trim((string) $data['avatar_url']);
         }
-        if (isset($data['precio_hora_pc'])) {
+
+        // Tarifas por hora generales
+        if (array_key_exists('precio_hora_pc', $data)) {
+            if (!is_numeric($data['precio_hora_pc'])) {
+                return ['success' => false, 'error' => 'Precio por hora PC inválido: debe ser un número.'];
+            }
+            $precioPc = (float) $data['precio_hora_pc'];
+            if (is_nan($precioPc) || is_infinite($precioPc) || $precioPc <= 0) {
+                return ['success' => false, 'error' => 'Precio por hora PC inválido: debe ser mayor a 0.'];
+            }
             $sets[] = 'precio_hora_pc = ?';
-            $params[] = (float) $data['precio_hora_pc'];
+            $params[] = round($precioPc, 2);
         }
-        if (isset($data['precio_hora_consola'])) {
+
+        if (array_key_exists('precio_hora_consola', $data)) {
+            if (!is_numeric($data['precio_hora_consola'])) {
+                return ['success' => false, 'error' => 'Precio por hora Consola inválido: debe ser un número.'];
+            }
+            $precioConsola = (float) $data['precio_hora_consola'];
+            if (is_nan($precioConsola) || is_infinite($precioConsola) || $precioConsola <= 0) {
+                return ['success' => false, 'error' => 'Precio por hora Consola inválido: debe ser mayor a 0.'];
+            }
             $sets[] = 'precio_hora_consola = ?';
-            $params[] = (float) $data['precio_hora_consola'];
+            $params[] = round($precioConsola, 2);
         }
 
         if (!empty($sets)) {

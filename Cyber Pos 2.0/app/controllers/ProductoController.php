@@ -8,8 +8,8 @@ class ProductoController extends Controller
     private function filtros(): array
     {
         return [
-            'categoria' => (string) $this->input('categoria', 'all'),
-            'busqueda'  => (string) $this->input('busqueda', ''),
+            'categoria' => trim((string) $this->input('categoria', 'all')),
+            'busqueda'  => trim((string) $this->input('busqueda', '')),
         ];
     }
 
@@ -53,6 +53,9 @@ class ProductoController extends Controller
     public function update($id): void
     {
         $this->requireAdmin();
+        if (!is_numeric($id) || (int) $id <= 0) {
+            $this->fail('Identificador de producto inválido.', 400);
+        }
         $res = (new Producto())->update((int) $id, $this->body());
         if (!$res['success']) {
             $this->fail($res['error'], 400);
@@ -63,6 +66,9 @@ class ProductoController extends Controller
     public function destroy($id): void
     {
         $this->requireAdmin();
+        if (!is_numeric($id) || (int) $id <= 0) {
+            $this->fail('Identificador de producto inválido.', 400);
+        }
         $res = (new Producto())->delete((int) $id);
         if (!$res['success']) {
             $this->fail($res['error'], 400);
@@ -74,7 +80,7 @@ class ProductoController extends Controller
     public function index(): void
     {
         $this->requireAuth();
-        $busqueda = (string) $this->input('busqueda', '');
+        $busqueda = trim((string) $this->input('busqueda', ''));
         $this->ok((new Producto())->getAllUnificados($busqueda));
     }
 }
