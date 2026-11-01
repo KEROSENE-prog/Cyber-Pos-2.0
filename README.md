@@ -1,99 +1,141 @@
 # Instituto Universitario Jesús Obrero (IUJO)
-## CyberPOS - Sistema de Monitoreo y Punto de Venta para Cyber Gaming
+## CyberPOS 2.0 — Sistema de Monitoreo y Punto de Venta para Cyber Gaming
+### Establecimiento: Laneros Gamer (Barquisimeto, Venezuela)
 
-Sistema integral de interfaz web UI/UX adaptado a la identidad visual de **Laneros Gamer**. Combina un módulo de Punto de Venta (POS) para la gestión e inventario de productos (snacks y bebidas) con un sistema centralizado para el monitoreo en tiempo real del tiempo de uso de computadoras y consolas de videojuegos.
+> **Guía Directa de Auditoría y Despliegue Técnico**  
+> **Rama Activa:** `feature/implantacion-respaldo-docs`  
+> **Entorno de Evaluación:** Localhost / XAMPP 8.2+ / PHP 8.2 / MariaDB 10.4+
 
+---
 
-##  Tecnologías Utilizadas
-* **HTML5 Semántico:** Maquetación modular basada en estándares HTML5 con (`<main>`, `<section>`, `<article>`, `<aside>`, `<header>`, `<nav>`, `<fieldset>`, `<dialog>`).
-* **CSS3 Puro:** Diseño "Mobile-First", arquitectura con variables nativas en `:root`, CSS Grid, Flexbox y animaciones de transición sin necesidad de frameworks externos.
-* **Vanilla JavaScript (ES6+):** Lógica ligera para el control interactivo de modales nativos, menú hamburguesa en dispositivos móviles, pestañas de roles y notificaciones temporizadas (Toasts).
-* **PHP 8 (MVC propio):** Backend en `api/` y `app/` (modelos, controladores, rutas y núcleo) que expone una API JSON.
-* **MySQL / MariaDB (PDO):** Persistencia de datos. Esquema y datos iniciales en `database/cyberpos.sql`.
+## 1. Descripción Breve de la Arquitectura Actual
 
+**CyberPOS 2.0** es una solución integral para salas de videojuegos y cybercafés eSports que combina el monitoreo en tiempo real de estaciones de juego con un Punto de Venta (POS) multimoneda (Dólares y Bolívares según la tasa del BCV).
 
-##  Cómo ejecutar el sistema
+```
+[ Cliente Web / POS ] <---> [ API Front Controller (api/index.php) ] <---> [ Base de Datos MySQL ]
+  Vanilla JS + HTML5         Micro-MVC Nativo PHP 8 (Core + Modelos)         7 Tablas (InnoDB / utf8mb4)
+```
 
-> Importante: la ruta del proyecto **no debe contener espacios finales** en ningún nombre de carpeta (Windows y PHP fallan al abrir esas rutas).
+* **Backend:** Arquitectura Micro-MVC nativa en PHP 8 (`app/core/`, `app/controllers/`, `app/models/`) exponiendo endpoints RESTful con respuestas JSON uniformes (`{success: true, data: ...}`).
+* **Persistencia y Base de Datos:** Motor MariaDB/MySQL con 7 tablas normalizadas en InnoDB (`usuarios`, `equipos`, `productos`, `sesiones_uso`, `solicitudes_tiempo`, `pedidos_snacks`, `configuracion`), claves foráneas `ON DELETE SET NULL / ON UPDATE CASCADE`, índices de aceleración y codificación `utf8mb4_unicode_ci`.
+* **Seguridad y Sesión:** Autenticación por tokens criptográficos aleatorios de 48 caracteres hexadecimales generados en backend con TTL de 7 días (`token_ttl: 604800`) transportados en la cabecera `X-Auth-Token`. Contraseñas protegidas exclusivamente mediante `password_hash($pass, PASSWORD_BCRYPT)`.
+* **Sincronización Cambiaria y Horaria:** Zona horaria sincronizada a `America/Caracas` (UTC -4) en PHP y MySQL (`SET time_zone`), y conversión multimoneda automática USD/VES conectada a la API oficial del Banco Central de Venezuela (BCV).
 
-1. **Crear la base de datos** (MySQL/MariaDB):
-   ```bash
-   mysql -u root -p < database/cyberpos.sql
-   ```
-2. **Configurar la conexión** en `app/config.php` (host, usuario, contraseña, `dbname=cyberpos`).
-3. **Levantar el servidor PHP** desde la raíz del proyecto:
-   ```bash
-   php -S 127.0.0.1:8000
-   ```
-4. Abrir en el navegador: `http://127.0.0.1:8000/login.html`
+---
 
-**Credenciales de prueba:**
-* Administrador: `admin@laneros.com` / `admin123`
-* Cliente: `cliente@laneros.com` / `cliente123`
+## 2. Pasos Rápidos de Arranque (Quick Start)
 
+### Paso 1: Configurar Variables de Entorno
+Copie la plantilla de configuración en la raíz del proyecto para generar su archivo `.env`:
+```powershell
+# En Windows (PowerShell):
+Copy-Item .env.example .env
+# En Windows (CMD):
+copy .env.example .env
+# En Linux / macOS:
+cp .env.example .env
+```
 
-##  Identidad Visual y Sistema de Diseño
-El prototipo está construido siguiendo una guía de estilo basada en variables CSS nativas:
+### Paso 2: Crear la Base de Datos e Importar Estructura (DDL)
+Asegúrese de que MySQL esté corriendo en XAMPP y ejecute:
+```cmd
+C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE IF NOT EXISTS cyberpos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+C:\xampp\mysql\bin\mysql.exe -u root cyberpos < database/schema.sql
+```
 
-* **Paleta de Colores (Modo Oscuro / Gaming):**
-  * `Obsidian Black (#0a0a0a)`: Fondo principal y contenedores base.
-  * `Laneros Green (#35c029)`: Acento primario, botones, resaltado de horas y estados activos.
-  * `Laneros Hover (#2da323)` y `Laneros Active (#227d1a)`: Respuestas visuales para interacción y clic táctil.
-  * `Laneros Dark (#144a0f)`: Sombras y matices de profundidad.
-  * `Success (#16a34a)` y `Danger (#991b1b)`: Confirmaciones, alertas y errores de validación.
+### Paso 3: Cargar Datos Semilla de Prueba (Seeds)
+Pueble los usuarios activos, estaciones de juego, catálogo de productos y tasa inicial:
+```cmd
+C:\xampp\mysql\bin\mysql.exe -u root cyberpos < database/seeds.sql
+```
+*(O ejecute la opción [3] y [4] desde el script interactivo `scripts/backup_restore.bat`).*
+
+### Paso 4: Levantar el Servidor Web
+Ejecute el servidor de desarrollo PHP desde la raíz del proyecto:
+```cmd
+C:\xampp\php\php.exe -S 127.0.0.1:8000
+```
+
+### Paso 5: Abrir en el Navegador
+Acceda a la URL principal: **[http://127.0.0.1:8000/login.html](http://127.0.0.1:8000/login.html)**
+
+---
+
+## 3. Tabla de Credenciales Activas de Prueba (Auditoría QA)
+
+El archivo `database/seeds.sql` inicializa las siguientes cuentas con contraseñas en Bcrypt validadas:
+
+| Rol de Sistema | Nombre Completo | Correo Electrónico | Contraseña en Plano | Pestaña en Login | Vista de Acceso / Permisos |
+|---|---|---|---|---|---|
+| **Administrador** | Administrador Laneros | `admin@laneros.com` | `admin123` | Administrador | `dashboard.html` (Control total de sala, POS, configuración, auditoría) |
+| **Cajero de Turno** | Cajero de Turno POS | `cajero@laneros.com` | `cajero123` | Administrador | `ventas.html` (Facturación de mostrador y despacho de pedidos) |
+| **Operador** | Carlos Mendoza | `operador@laneros.com` | `operador123` | Administrador | Módulo de operación de sala y monitoreo |
+| **Cliente Demo** | Cliente Gamer Demo | `cliente@laneros.com` | `cliente123` | Cliente | `dashboard_cliente.html` (Cronómetro, recargas y carrito) |
+| **Cliente Regular** | Kelvin Nieto | `kelvin@laneros.com` | `admin123` | Cliente | `dashboard_cliente.html` (Estación de juego asignada) |
+
+---
+
+## 4. Batería de Pruebas Funcionales (Instrucciones de Ejecución)
+
+Para auditar y certificar el correcto funcionamiento del sistema, siga esta secuencia de verificación:
+
+### Prueba 1: Autenticación y Control de Roles
+1. Ingrese a `http://127.0.0.1:8000/login.html`.
+2. Seleccione la pestaña **Administrador**, ingrese `admin@laneros.com` / `admin123` y verifique la redirección exitosa al panel de Monitoreo (`dashboard.html`).
+3. Cierre sesión desde el menú lateral (`Salir`).
+4. Seleccione la pestaña **Cliente**, ingrese `cliente@laneros.com` / `cliente123` y verifique la redirección a la vista de cliente (`dashboard_cliente.html`).
+
+### Prueba 2: Venta en Punto de Venta (POS) y Descuento de Stock
+1. Con la sesión de Administrador/Cajero abierta, ingrese a **💰 Ventas** (`ventas.html`).
+2. Agregue 1 unidad de `Monster Energy Ultra White` ($2.50) y 1 de `Doritos Mega Queso` ($1.80).
+3. Verifique el cálculo automático: Subtotal ($4.30), IVA 16% ($0.69) y Total ($4.99), además de la conversión a Bolívares (ej. `Bs. 270.46`).
+4. Presione **✅ Finalizar Venta** y verifique la aparición del modal con el **Ticket Fiscal** listo para imprimir.
+5. Ingrese a `crud.html` y constate que el stock de ambos artículos se descontó en 1 unidad en la base de datos.
+
+### Prueba 3: Monitoreo y Asignación de Tiempo a Equipos
+1. En **🖥️ Monitoreo** (`dashboard.html`), ubique una estación inactiva (ej. `PC 01`).
+2. Presione **+ Añadir Tiempo**, seleccione el preset de **30 min** para el cliente `Kelvin` y confirme.
+3. Compruebe que la tarjeta enciende su **halo Verde Neón**, el contador inicia la cuenta regresiva y el KPI de PCs Activas se incrementa.
+
+### Prueba 4: Flujo Interactivo de Recarga y Pedidos desde Estación Cliente
+1. Abra una ventana de incógnito en `dashboard_cliente.html` con la cuenta de `cliente@laneros.com`.
+2. Presione **⏱ Solicitar Más Tiempo**, seleccione **30 min** y envíe la solicitud a caja.
+3. En la pantalla del Administrador (`dashboard.html`), verifique que la solicitud aparece inmediatamente en el **Panel de Notificaciones** con opción de aprobar.
+4. En el catálogo inferior de la vista cliente, agregue un snack al carrito y presione **📦 Pedir a mi lugar**. Verifique la llegada de la comanda al mostrador de caja.
+
+### Prueba 5: Actualización de Tasa Oficial BCV
+1. Ingrese a **⚙️ Configuración** (`configuracion.html`).
+2. En la tarjeta de **Tasa BCV**, presione el botón **🔄 Actualizar desde API BCV**.
+3. Verifique que la tasa se actualiza con el valor oficial del Banco Central de Venezuela y que los montos en Bolívares en el POS y en la vista de clientes reflejan el nuevo valor al instante.
+
+---
+
+## 5. Documentación y Scripts del Repositorio
+
+* 📘 [**Guía Técnica de Instalación y Plan de Contingencia TI**](docs/GUIA_INSTALACION_TI.md): Requisitos de hardware, soporte ante apagones con UPS, comandos de despliegue y protocolos de recuperación de desastres.
+* 📗 [**Manual de Usuario Operativo**](docs/MANUAL_USUARIO.md): Manual paso a paso para el personal de caja y clientes, con indicadores visuales para capturas de pantalla `> 📸 [INSERTAR CAPTURA AQUÍ: ...]`.
+* 🛠️ [**Script de Respaldo Windows (Batch)**](scripts/backup_restore.bat): Gestor interactivo para generar backups con fecha y hora, restaurar copias de seguridad o inicializar la base de datos.
+* ⚙️ [**Script de Respaldo PowerShell**](scripts/backup_restore.ps1): Script CLI automatizable para tareas programadas de respaldo.
+* 🐧 [**Script de Respaldo Linux (Bash)**](scripts/backup_restore.sh): Utilidad de respaldo para entornos Unix / Docker / Git Bash.
+* 🗄️ [**Esquema DDL Limpio (schema.sql)**](database/schema.sql): Estructura formal de las 7 tablas con claves foráneas e integridad referencial.
+* 🌱 [**Datos Semilla de Prueba (seeds.sql)**](database/seeds.sql): Cuentas de usuario con hash Bcrypt, 10 estaciones de juego y 18 productos.
+* 📄 [**Plantilla de Variables de Entorno (.env.example)**](.env.example): Definición documentada de parámetros de conexión y seguridad.
+
+---
+
+## 6. Identidad Visual y Sistema de Diseño
+El sistema utiliza una guía de estilo gaming construida sobre variables nativas CSS:
+* **Paleta de Colores (Modo Oscuro / Cyber Gaming):**
+  * `Obsidian Black (#0a0a0a)`: Fondo principal y paneles de control.
+  * `Laneros Green (#35c029)`: Acento primario, botones de acción, resaltado de cronómetros y halos neón activos.
+  * `Neon Danger (#ef4444)`: Alerta preventiva de tiempo crítico (≤ 5 min) y tiempo agotado.
+  * `Card Surface (#141419)`: Superficie de tarjetas y modales nativos.
 * **Tipografías:**
-  * **Títulos y Relojes:** `Outfit` (700 / 800) para un acabado geométrico, tecnológico y legible.
-  * **Cuerpo y Formularios:** `Inter` (400 / 600) para máxima claridad en tablas, etiquetas e inventario.
+  * **Relojes y Títulos:** `Outfit` (700 / 800) para un acabado geométrico y legible en pantallas de sala.
+  * **Tablas e Inventario:** `Inter` (400 / 600) para máxima nitidez en datos numéricos y formularios.
 
-
-##  Vistas del Sistema
-
-1. **Monitoreo de Equipos (`dashboard.html`):**
-   * Panel de 4 tarjetas KPI en la parte superior (Ingresos del día, PCs activas, Consolas activas y Pedidos pendientes)[cite: 13].
-   * Cuadrícula responsiva de tarjetas (`<article>`) que muestra cada equipo, estado (Activo/Inactivo), contador de tiempo restante (`<time>`) y botón para sumar horas.
-
-2. **Inventario de Snacks (`crud.html`):**
-   * Catálogo tipo POS con tarjetas de productos, fotos corporativas, precio y stock disponible.
-   * Barra de búsqueda rápida por nombre y filtro por categorías (`<select>`).
-   * Modal unificado (`<dialog>`) nativo para "Crear / Editar" productos.
-   * Modal secundario para confirmación antes de eliminar registros.
-
-3. **Autenticación (`login.html` / `registro.html`):**
-   * Pantallas centradas mediante Flexbox sobre fondo inmersivo eSports con gradiente lineal.
-   * Selector de pestañas (*Tabs*) para cambiar dinámicamente entre el rol de **Cliente** y **Administrador**.
-
-
-##  Mejoras y Correcciones Implementadas
-
-### 1. Corrección de zona horaria y expiración de tiempo
-* Se detectó un desfase de **6 horas** entre PHP (`Europe/Berlin`) y MySQL (`America/Caracas`) que provocaba que las sesiones de tiempo expiraran al instante.
-* **Solución:** se fijó `date_default_timezone_set('America/Caracas')` en `api/index.php` y `SET time_zone` en `app/core/Database.php`, de modo que PHP y la base de datos trabajan con la hora local del sistema.
-
-### 2. Autenticación y manejo de sesión
-* Manejo centralizado del **error 401**: al expirar el token, `js/api.js` limpia la sesión (`Auth.clearSession()`) y redirige automáticamente a `login.html`.
-* Corrección de una **recursión infinita** en `js/dashboard.js` (se eliminaron los *wrappers* sobre las funciones expuestas en `window`).
-
-### 3. Monitoreo de equipos en tiempo real
-* Se corrigió el **parpadeo/reconstrucción** de las tarjetas: la nueva función `actualizarGridEnVivo()` actualiza en sitio el contador, la barra y el color, y solo vuelve a renderizar cuando cambia el estado del equipo (o su cliente, tarifa, hora límite o nombre).
-* Corrección de **layout**: las tarjetas de equipos sin tiempo ya **no se estiran** para igualar a la tarjeta activa (`align-items: start` en `styles.css`); cada tarjeta conserva su tamaño.
-
-### 4. Rediseño visual con identidad neón
-* Contador de tiempo del cliente (`dashboard_cliente.html`) con borde y brillo neón, y estado de alerta en rojo cuando queda poco tiempo.
-* Barra de progreso del cliente con brillo neón (verde normal, rojo en tiempo crítico).
-* Tarjetas de equipos en Monitoreo con **halo neón** (verde para equipos activos, rojo para equipos finalizados o con ≤ 5 minutos).
-* Selector de rol de `login.html` y `registro.html` rediseñado con un "globo" neón en la pestaña activa; se eliminaron los emojis del formulario de acceso.
-
-### 5. Notificaciones de tiempo agotado
-* Aviso **"Tiempo Agotado"** con el nombre del equipo (para el cliente, con indicación de acercarse a caja).
-* Los estados previos de los equipos se persisten en `localStorage` para que la alerta no se pierda al navegar entre secciones.
-
-### 6. Configuración del sistema
-* Se trasladó la gestión de **Base de Datos** desde el menú lateral hacia **Configuración**, con tarjeta de estadísticas (usuarios, equipos, snacks, sesiones) y acciones de copia de seguridad, restauración y restablecimiento de fábrica.
-
-### 7. Historial de Ventas
-* Nueva sección **" Historial de Ventas"** en Configuración con **fecha, hora, productos vendidos y total**, además de un resumen de ventas y monto recaudado.
-* Para poder registrar el detalle, se agregó la columna `detalle` a la tabla `sesiones_uso`, se actualizó el modelo `SesionUso` (`registrarVenta()` con ítems y `historialVentas()`) y el controlador `VentaController` (guarda el detalle y expone `GET /ventas`).
-
+---
 
 ## 👥 Integrantes del Equipo
 * **Luis Colmenarez** — C.I. V-30.178.822
