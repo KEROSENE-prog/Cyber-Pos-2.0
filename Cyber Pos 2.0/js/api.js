@@ -1,22 +1,39 @@
-/**
- * CyberPOS — api.js v4
- * Cliente del backend PHP (MVC). Reemplaza al antiguo motor LocalDB.
- * Incluye: Auth, apiFetch (fetch real), toasts, notificaciones de esquina,
- * ticker global (servidor), config global y utilidades.
- */
+// Utilidades de API, sesión y helpers visuales.
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+window.escapeHtml = escapeHtml;
+window.escapeAttr = escapeAttr;
 
 // =========================================================================
 // GESTOR DE SESIÓN
 // =========================================================================
 const Auth = {
-  getToken()  { return localStorage.getItem('cyberpos_token') || null; },
-  getUser()   {
+  getToken() { return localStorage.getItem('cyberpos_token') || null; },
+  getUser() {
     const raw = localStorage.getItem('cyberpos_user');
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   },
   setSession(user, token) {
     if (token) localStorage.setItem('cyberpos_token', token);
-    if (user)  localStorage.setItem('cyberpos_user', JSON.stringify(user));
+    if (user) localStorage.setItem('cyberpos_user', JSON.stringify(user));
   },
   clearSession() {
     localStorage.removeItem('cyberpos_token');
@@ -24,7 +41,7 @@ const Auth = {
   },
   isAuthenticated() { return !!this.getToken(); },
   requireAuth(allowedRole = null) {
-    const user  = this.getUser();
+    const user = this.getUser();
     const token = this.getToken();
     if (!token || !user) { window.location.href = 'login.html'; return false; }
     if (allowedRole && user.rol !== allowedRole && user.rol !== 'administrador') {
@@ -43,10 +60,10 @@ const API_BASE = 'api/index.php';
 
 async function apiFetch(endpoint, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
-  const raw    = String(endpoint).replace(/^\//, '');
+  const raw = String(endpoint).replace(/^\//, '');
   const qIndex = raw.indexOf('?');
-  const path   = qIndex === -1 ? raw : raw.slice(0, qIndex);
-  const query  = qIndex === -1 ? ''  : raw.slice(qIndex + 1);
+  const path = qIndex === -1 ? raw : raw.slice(0, qIndex);
+  const query = qIndex === -1 ? '' : raw.slice(qIndex + 1);
 
   let url = `${API_BASE}?r=${encodeURIComponent(path)}`;
   if (query) url += `&${query}`;
@@ -111,7 +128,7 @@ function aplicarConfigVisual(config) {
     document.documentElement.style.setProperty('--brand-primary', config.theme_color);
   }
   const usuario = Auth.getUser();
-  const avatar  = (usuario && usuario.avatar_url) || config.avatar_url;
+  const avatar = (usuario && usuario.avatar_url) || config.avatar_url;
   if (avatar) {
     document.querySelectorAll('img[alt^="Avatar"]').forEach(img => { img.src = avatar; });
   }
@@ -141,7 +158,7 @@ function refrescarConfigGlobal(config) {
 }
 
 // =========================================================================
-// TOASTS (notificaciones breves en esquina superior derecha)
+// TOASTS SEGUROS (uso estricto de textContent para neutralizar XSS)
 // =========================================================================
 function showToast(message, type = 'info', duration = 3000) {
   let container = document.getElementById('toast-container');
@@ -152,11 +169,22 @@ function showToast(message, type = 'info', duration = 3000) {
     document.body.appendChild(container);
   }
   const colors = { success: '#16a34a', error: '#991b1b', info: '#2563eb', warning: '#d97706' };
-  const icons  = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+
   const toast = document.createElement('div');
-  toast.style.cssText = `background:var(--bg-card,#2b2b36);border-left:4px solid ${colors[type]||colors.info};color:var(--text-main,#f8fafc);padding:14px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:flex;align-items:center;gap:10px;font-size:.92rem;font-family:Inter,sans-serif;pointer-events:all;animation:slideIn .3s ease;`;
-  toast.innerHTML = `<span style="font-size:1.1rem">${icons[type]||''}</span><span>${message}</span>`;
+  toast.style.cssText = `background:var(--bg-card,#2b2b36);border-left:4px solid ${colors[type] || colors.info};color:var(--text-main,#f8fafc);padding:14px 18px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:flex;align-items:center;gap:10px;font-size:.92rem;font-family:Inter,sans-serif;pointer-events:all;animation:slideIn .3s ease;`;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.style.fontSize = '1.1rem';
+  iconSpan.textContent = icons[type] || '';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = String(message || '');
+
+  toast.appendChild(iconSpan);
+  toast.appendChild(msgSpan);
   container.appendChild(toast);
+
   setTimeout(() => {
     toast.style.animation = 'fadeOut .3s ease forwards';
     setTimeout(() => toast.remove(), 300);
@@ -164,7 +192,7 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 // =========================================================================
-// NOTIFICACIÓN DE ESQUINA (persistente, para alertas de tiempo)
+// NOTIFICACIÓN DE ESQUINA (segura contra XSS)
 // =========================================================================
 function showCornerNotification(message, equipoId = null) {
   let panel = document.getElementById('corner-notifications');
@@ -176,11 +204,26 @@ function showCornerNotification(message, equipoId = null) {
   }
   const notif = document.createElement('div');
   notif.style.cssText = 'background:linear-gradient(135deg,#991b1b,#7f1d1d);color:#fff;padding:14px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(153,27,27,.5);display:flex;flex-direction:column;gap:6px;font-family:Inter,sans-serif;animation:slideIn .3s ease;border-left:4px solid #fca5a5;';
-  notif.innerHTML = `
-    <span style="font-weight:700;font-size:.95rem">⏰ Tiempo Agotado</span>
-    <span style="font-size:.87rem;opacity:.9">${message}</span>
-    <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8rem;width:fit-content;margin-top:4px;">Cerrar</button>
-  `;
+
+  const titleSpan = document.createElement('span');
+  titleSpan.style.fontWeight = '700';
+  titleSpan.style.fontSize = '.95rem';
+  titleSpan.textContent = '⏰ Tiempo Agotado';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.style.fontSize = '.87rem';
+  msgSpan.style.opacity = '.9';
+  msgSpan.textContent = String(message || '');
+
+  const btn = document.createElement('button');
+  btn.style.cssText = 'background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8rem;width:fit-content;margin-top:4px;';
+  btn.textContent = 'Cerrar';
+  btn.onclick = () => notif.remove();
+
+  notif.appendChild(titleSpan);
+  notif.appendChild(msgSpan);
+  notif.appendChild(btn);
+
   panel.appendChild(notif);
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('⏰ Tiempo Agotado', { body: message, icon: 'logo-laneros.jpg' });
@@ -238,7 +281,7 @@ let __tickContador = 0;
 async function tickEquipos() {
   if (!Auth.isAuthenticated()) return;
   try {
-    const res     = await apiFetch('/equipos');
+    const res = await apiFetch('/equipos');
     const equipos = res.data || [];
     window.__equiposCache = equipos;
 
@@ -283,7 +326,6 @@ async function tickEquipos() {
 async function inicializarConfiguracionGlobal() {
   const config = await cargarConfigSistema() || {};
 
-  // Avatar del usuario logueado (prioridad) — ya aplicado en cargarConfigSistema.
   const usuario = Auth.getUser();
   if (usuario && usuario.avatar_url) {
     document.querySelectorAll('img[alt^="Avatar"]').forEach(img => { img.src = usuario.avatar_url; });
@@ -291,11 +333,11 @@ async function inicializarConfiguracionGlobal() {
 
   // Actualización automática de la tasa BCV (solo admin, si no es manual y >3h).
   if (!config.tasa_manual && usuario && usuario.rol === 'administrador') {
-    const ahora  = Date.now();
+    const ahora = Date.now();
     const ultima = config.ultima_actualizacion_tasa ? new Date(config.ultima_actualizacion_tasa.replace(' ', 'T')).getTime() : 0;
     if ((ahora - ultima) > 3 * 60 * 60 * 1000) {
       try {
-        const res  = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(5000) });
+        const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           const d = await res.json();
           const tasa = d.promedio || d.precio;
@@ -310,7 +352,7 @@ async function inicializarConfiguracionGlobal() {
 
   // Permiso de notificaciones
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().catch(() => { });
   }
 
   // Ticker global (cada segundo)

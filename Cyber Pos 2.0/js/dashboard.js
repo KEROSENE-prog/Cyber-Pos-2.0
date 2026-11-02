@@ -1,9 +1,4 @@
-/**
- * CyberPOS — dashboard.js v4
- * Monitoreo en tiempo real, KPIs, gestión de equipos y panel de notificaciones admin.
- * Consume el backend PHP a través de apiFetch.
- */
-
+// Panel de control: monitoreo de equipos, pedidos y solicitudes.
 let currentEquipoAccion = null; // { id, nombre, accion }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -30,8 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Exponer funciones para el ticker global (api.js).
-// OJO: no usar envoltorios tipo "() => renderizarGrid()" porque sobrescriben
-// la propia función global y provocan recursión infinita.
 window.renderizarGrid = renderizarGrid;
 window.actualizarGridEnVivo = actualizarGridEnVivo;
 window.actualizarKPIs = actualizarKPIs;
@@ -57,8 +50,8 @@ async function actualizarKPIs() {
     const k = res.data;
     const tasa = getTasaBCV();
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    set('kpiIngresos', `$${parseFloat(k.ingresos_hoy).toFixed(2)}`);
-    set('kpiIngresosBs', `Bs. ${(parseFloat(k.ingresos_hoy) * tasa).toFixed(2)}`);
+    set('kpiIngresos', `$${parseFloat(k.ingresos_hoy || 0).toFixed(2)}`);
+    set('kpiIngresosBs', `Bs. ${(parseFloat(k.ingresos_hoy || 0) * tasa).toFixed(2)}`);
     set('kpiPCs', k.pcs_activas);
     set('kpiConsolas', k.consolas_activas);
     set('kpiPedidos', (k.pedidos_pendientes || 0) + (k.solicitudes_pendientes || 0));
@@ -112,11 +105,11 @@ function renderizarGrid(equipos) {
             <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px">Tarifa: $${eq.tarifa_por_hora}/h · Total: $${monto}</p>
           ` : ''}
           <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-            <button class="primary btn-agregar-tiempo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:120px">
+            <button type="button" class="primary btn-agregar-tiempo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:120px">
               + Añadir Tiempo
             </button>
-            ${activa || eq.estado === 'finalizada' ? `<button class="danger btn-detener" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:100px">⏹ Detener</button>` : ''}
-            <button class="secondary btn-eliminar-equipo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="padding:8px;font-size:.8rem" title="Eliminar equipo">🗑</button>
+            ${activa || eq.estado === 'finalizada' ? `<button type="button" class="danger btn-detener" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="flex:1;min-width:100px">⏹ Detener</button>` : ''}
+            <button type="button" class="secondary btn-eliminar-equipo" data-id="${eq.id}" data-nombre="${escapeAttr(eq.nombre_equipo)}" style="padding:8px;font-size:.8rem" title="Eliminar equipo">🗑</button>
           </div>
         </section>
       </article>
@@ -152,57 +145,78 @@ function renderizarGrid(equipos) {
   });
 }
 
-// Actualización en vivo: solo pinta los números si nada estructural cambió.
-// Evita reconstruir las tarjetas cada segundo (el neón respira sin reiniciarse).
-function actualizarGridEnVivo(equipos) {
-  const grid = document.getElementById('equiposGrid');
-  if (!grid) return;
-  if (!Array.isArray(equipos) || equipos.length === 0) { renderizarGrid(equipos); return; }
-  if (grid.querySelectorAll('.device-card').length !== equipos.length) { renderizarGrid(equipos); return; }
-
-  let hayCambio = false;
-  for (const eq of equipos) {
-    const card = grid.querySelector('#equipo-card-' + eq.id);
-    if (!card) { hayCambio = true; break; }
-
-    const activa       = eq.estado === 'activa';
-    const transcurrido = parseInt(eq.tiempo_transcurrido || 0, 10);
-    const limite       = parseInt(eq.tiempo_limite || 0, 10);
-    const restante     = Math.max(0, limite - transcurrido);
-    const danger       = activa && restante <= 300;
-
-    if (card.dataset.fp !== fpEquipo(eq)) { hayCambio = true; break; }
-
-    const pct  = limite > 0 ? Math.max(0, Math.min(100, Math.round((restante / limite) * 100))) : 0;
-    const time = card.querySelector('.device-time');
-    if (time) time.textContent = formatSeconds(restante);
-    const fill  = card.querySelector('.pc-bar-fill');
-    const track = card.querySelector('.pc-bar-track');
-    if (fill)  fill.style.background = danger ? '#ef4444' : 'var(--brand-primary)';
-    if (fill)  fill.style.width = pct + '%';
-    if (track) track.classList.toggle('danger', danger);
-  }
-
-  if (hayCambio) renderizarGrid(equipos);
+function fpEquipo(eq) {
+  return `${eq.id}:${eq.estado}:${eq.tiempo_limite}:${eq.tiempo_transcurrido}:${eq.cliente || ''}:${eq.tarifa_por_hora || ''}`;
 }
 
-function fpEquipo(eq) {
-  return `${eq.estado}|${eq.cliente || ''}|${eq.tipo}|${eq.tarifa_por_hora}|${eq.tiempo_limite}|${eq.nombre_equipo}`;
+function actualizarGridEnVivo(equipos) {
+  if (!Array.isArray(equipos)) return;
+  const grid = document.getElementById('equiposGrid');
+  if (!grid) return;
+
+  const cardsActuales = grid.querySelectorAll('article.device-card');
+  if (cardsActuales.length !== equipos.length) {
+    renderizarGrid(equipos);
+    return;
+  }
+
+  equipos.forEach(eq => {
+    const card = document.getElementById(`equipo-card-${eq.id}`);
+    if (!card) {
+      renderizarGrid(equipos);
+      return;
+    }
+
+    const nuevoFp = fpEquipo(eq);
+    if (card.dataset.fp !== nuevoFp) {
+      const transcurrido = parseInt(eq.tiempo_transcurrido || 0, 10);
+      const limite       = parseInt(eq.tiempo_limite || 0, 10);
+      const restante     = Math.max(0, limite - transcurrido);
+      const activa       = eq.estado === 'activa';
+      const pct          = limite > 0 ? Math.max(0, Math.min(100, Math.round((restante / limite) * 100))) : 0;
+      const color        = restante <= 300 && activa ? '#ef4444' : 'var(--brand-primary)';
+      const danger       = activa && restante <= 300;
+
+      card.className = `device-card ${eq.estado === 'finalizada' ? 'card-finished' : ''} ${danger || eq.estado === 'finalizada' ? 'neon-danger' : (activa ? 'neon-on' : '')}`;
+      card.dataset.fp = nuevoFp;
+
+      const badge = card.querySelector('.status-badge');
+      if (badge) {
+        badge.className = `status-badge ${activa ? 'active' : (eq.estado === 'finalizada' ? 'finished' : 'inactive')}`;
+        badge.textContent = activa ? 'Activa' : (eq.estado === 'finalizada' ? 'Finalizada' : 'Inactiva');
+      }
+
+      const timerEl = document.getElementById(`timer-${eq.id}`);
+      if (timerEl) {
+        timerEl.textContent = formatSeconds(restante);
+        timerEl.style.color = eq.estado === 'finalizada' ? '#f87171' : '';
+      }
+
+      const barFill = card.querySelector('.pc-bar-fill');
+      const barTrack = card.querySelector('.pc-bar-track');
+      if (barFill) {
+        barFill.style.width = `${pct}%`;
+        barFill.style.background = color;
+      }
+      if (barTrack) {
+        barTrack.classList.toggle('danger', danger);
+      }
+    }
+  });
 }
 
 // =========================================================================
-// MODAL: AGREGAR / MODIFICAR TIEMPO
+// MODAL: AÑADIR TIEMPO
 // =========================================================================
 function abrirModalTiempo() {
   const modal = document.getElementById('modalTiempo');
   if (!modal || !currentEquipoAccion) return;
-  const titleEl = modal.querySelector('#modalTiempoTitle');
-  if (titleEl) titleEl.textContent = `Añadir Tiempo — ${currentEquipoAccion.nombre}`;
-  const inputMin  = modal.querySelector('#inputMinutos');
+  const title = document.getElementById('modalTiempoTitle');
+  if (title) title.textContent = `Añadir Tiempo — ${currentEquipoAccion.nombre}`;
   const inputCliente = modal.querySelector('#inputClienteNombre');
-  if (inputMin) inputMin.value = '';
-  const eq = getEquiposCache().find(e => String(e.id) === String(currentEquipoAccion.id));
-  if (inputCliente) inputCliente.value = eq ? (eq.cliente || '') : '';
+  const inputMin = modal.querySelector('#inputMinutos');
+  if (inputCliente) inputCliente.value = '';
+  if (inputMin) inputMin.value = '30';
   modal.showModal();
 }
 
@@ -211,7 +225,7 @@ function setupModalesEquipos() {
   if (!modal) return;
   const form      = modal.querySelector('form');
   const btnClose  = modal.querySelector('.close-modal');
-  const btnCancel = modal.querySelector('.modal-actions button[type="button"]');
+  const btnCancel = modal.querySelector('.modal-actions button.secondary');
 
   const cerrar = () => modal.close();
   if (btnClose)  btnClose.addEventListener('click', cerrar);
@@ -228,9 +242,32 @@ function setupModalesEquipos() {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!currentEquipoAccion) return;
-      const minutos  = parseInt(modal.querySelector('#inputMinutos')?.value, 10);
-      const cliente  = modal.querySelector('#inputClienteNombre')?.value.trim() || 'Cliente';
-      if (!minutos || minutos <= 0) { showToast('Ingresa los minutos.', 'error'); return; }
+
+      const rawMin = (modal.querySelector('#inputMinutos')?.value || '').trim();
+      const clienteInput = modal.querySelector('#inputClienteNombre');
+      const cliente = (clienteInput?.value || '').trim() || 'Cliente';
+
+      if (rawMin === '' || isNaN(Number(rawMin)) || !Number.isInteger(Number(rawMin))) {
+        showToast('Minutos inválidos: debe ser un número entero sin decimales.', 'error');
+        modal.querySelector('#inputMinutos')?.focus();
+        return;
+      }
+      const minutos = Number(rawMin);
+      if (minutos <= 0) {
+        showToast('Minutos de alquiler inválidos: debe ser mayor a 0.', 'error');
+        modal.querySelector('#inputMinutos')?.focus();
+        return;
+      }
+      if (minutos > 1440) {
+        showToast('Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).', 'error');
+        modal.querySelector('#inputMinutos')?.focus();
+        return;
+      }
+      if (cliente.length > 120) {
+        showToast('El nombre del cliente no puede exceder los 120 caracteres.', 'error');
+        clienteInput?.focus();
+        return;
+      }
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -273,10 +310,39 @@ function setupModalAgregarEquipo() {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nombre = modal.querySelector('#nuevoEquipoNombre')?.value.trim() || '';
+      const nombreInput = modal.querySelector('#nuevoEquipoNombre');
+      const tarifaInput = modal.querySelector('#nuevoEquipoTarifa');
+      const nombre = (nombreInput?.value || '').trim();
       const tipo   = modal.querySelector('#nuevoEquipoTipo')?.value || 'pc';
-      const tarifa = parseFloat(modal.querySelector('#nuevoEquipoTarifa')?.value) || (tipo === 'consola' ? 2.00 : 1.50);
-      if (!nombre) { showToast('El nombre del equipo es obligatorio.', 'error'); return; }
+
+      if (!nombre) {
+        showToast('El nombre del equipo es obligatorio y no puede consistir solo de espacios.', 'error');
+        nombreInput?.focus();
+        return;
+      }
+      if (nombre.length > 100) {
+        showToast('El nombre del equipo no puede exceder los 100 caracteres.', 'error');
+        nombreInput?.focus();
+        return;
+      }
+
+      const rawTarifa = (tarifaInput?.value || '').trim();
+      let tarifa;
+      if (rawTarifa !== '') {
+        if (isNaN(Number(rawTarifa))) {
+          showToast('Tarifa por hora inválida: debe ser un valor numérico.', 'error');
+          tarifaInput?.focus();
+          return;
+        }
+        tarifa = Number(rawTarifa);
+        if (tarifa <= 0) {
+          showToast('Tarifa por hora inválida: debe ser mayor a 0.', 'error');
+          tarifaInput?.focus();
+          return;
+        }
+      } else {
+        tarifa = (tipo === 'consola') ? 2.00 : 1.50;
+      }
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -297,7 +363,7 @@ function setupModalAgregarEquipo() {
 }
 
 // =========================================================================
-// PANEL DE NOTIFICACIONES ADMIN
+// PANEL DE NOTIFICACIONES ADMIN (inmunidad XSS)
 // =========================================================================
 async function actualizarNotificacionesAdmin() {
   const panel = document.getElementById('panelNotificaciones');
@@ -330,29 +396,31 @@ async function actualizarNotificacionesAdmin() {
     const eq = equipos.find(e => String(e.id) === String(sol.equipo_id));
     const eqNombre = eq ? eq.nombre_equipo : `Equipo #${sol.equipo_id}`;
     const monto = parseFloat(sol.monto || 0);
+    const solId = parseInt(sol.id, 10);
     html += `
       <article class="notif-card" style="background:rgba(37,99,235,.1);border-left:3px solid #2563eb;padding:12px 14px;border-radius:8px;margin-bottom:8px">
         <p style="font-weight:700;font-size:.92rem;margin-bottom:4px">⏱ Solicitud de Tiempo — ${escapeHtml(eqNombre)}</p>
         <p style="font-size:.85rem;color:var(--text-muted)">Cliente: <strong>${escapeHtml(sol.cliente_nombre)}</strong> · +${sol.minutos} min · $${monto.toFixed(2)} / Bs. ${(monto * tasa).toFixed(2)}</p>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="success" style="padding:6px 12px;font-size:.82rem" onclick="confirmarSolicitudAdmin(${sol.id})">✅ Aprobar y Sumar Tiempo</button>
-          <button class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarSolicitudAdmin(${sol.id})">Cancelar</button>
+          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="confirmarSolicitudAdmin(${solId})">✅ Aprobar y Sumar Tiempo</button>
+          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarSolicitudAdmin(${solId})">Cancelar</button>
         </div>
       </article>`;
   });
 
   pedidos.forEach(ped => {
-    const itemsList = (ped.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    const safeItems = (ped.items || []).map(i => `${escapeHtml(i.nombre)} x${parseInt(i.cantidad, 10) || 1}`).join(', ');
     const totalPed = parseFloat(ped.total || 0);
+    const pedId = parseInt(ped.id, 10);
     html += `
       <article class="notif-card" style="background:rgba(217,119,6,.1);border-left:3px solid #d97706;padding:12px 14px;border-radius:8px;margin-bottom:8px">
         <p style="font-weight:700;font-size:.92rem;margin-bottom:4px">🍔 Pedido — ${escapeHtml(ped.equipo_nombre || 'Mostrador')}</p>
         <p style="font-size:.85rem;color:var(--text-muted)">Cliente: <strong>${escapeHtml(ped.cliente_nombre)}</strong></p>
-        <p style="font-size:.85rem;color:var(--text-muted)">Productos: ${escapeHtml(itemsList)}</p>
+        <p style="font-size:.85rem;color:var(--text-muted)">Productos: ${safeItems}</p>
         <p style="font-size:.85rem;color:var(--brand-primary)">Total: $${totalPed.toFixed(2)} / Bs. ${(totalPed * tasa).toFixed(2)}</p>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="success" style="padding:6px 12px;font-size:.82rem" onclick="completarPedido(${ped.id})">✅ Completado</button>
-          <button class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarPedido(${ped.id})">Cancelar</button>
+          <button type="button" class="success" style="padding:6px 12px;font-size:.82rem" onclick="completarPedido(${pedId})">✅ Completado</button>
+          <button type="button" class="danger"  style="padding:6px 12px;font-size:.82rem" onclick="cancelarPedido(${pedId})">Cancelar</button>
         </div>
       </article>`;
   });
@@ -360,46 +428,62 @@ async function actualizarNotificacionesAdmin() {
   panel.innerHTML = html;
 }
 
-async function confirmarSolicitudAdmin(id) {
+window.confirmarSolicitudAdmin = async function(id) {
   try {
     const res = await apiFetch(`/solicitudes/${id}/admin`, { method: 'POST' });
-    showToast(res.message || 'Tiempo otorgado al cliente.', 'success');
+    showToast(res.message || 'Solicitud aprobada.', 'success');
     await refrescarTodo();
-  } catch (err) { showToast(err.message, 'error'); }
-}
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
-async function cancelarSolicitudAdmin(id) {
+window.cancelarSolicitudAdmin = async function(id) {
   try {
     await apiFetch(`/solicitudes/${id}/cancelar`, { method: 'POST' });
     showToast('Solicitud cancelada.', 'info');
     await refrescarTodo();
-  } catch (err) { showToast(err.message, 'error'); }
-}
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
-async function completarPedido(id) {
+window.completarPedido = async function(id) {
   try {
     await apiFetch(`/pedidos/${id}/completar`, { method: 'POST' });
     showToast('Pedido completado.', 'success');
     await refrescarTodo();
-  } catch (err) { showToast(err.message, 'error'); }
-}
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
-async function cancelarPedido(id) {
+window.cancelarPedido = async function(id) {
   try {
     await apiFetch(`/pedidos/${id}/cancelar`, { method: 'POST' });
     showToast('Pedido cancelado.', 'info');
     await refrescarTodo();
-  } catch (err) { showToast(err.message, 'error'); }
-}
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
-// =========================================================================
-// Helpers
-// =========================================================================
+// Helpers seguros contra XSS
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

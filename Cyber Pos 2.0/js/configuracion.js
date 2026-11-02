@@ -1,11 +1,22 @@
-/**
- * CyberPOS — configuracion.js v4
- * Perfil, tema de color y tasa BCV. Persistido en el backend PHP.
- */
-
+// Configuración general: perfil, tema y tasa BCV.
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function formatDuracionSesion(segundos) {
@@ -152,51 +163,54 @@ function setupBaseDatos() {
   });
 
   document.getElementById('btnResetearDB')?.addEventListener('click', async () => {
-    if (!confirm('¿Restablecer todos los datos de fábrica? Se perderán todos los registros.')) return;
+    if (!confirm('¿Restablecer toda la base de datos con los datos de fábrica? Perderás cualquier cambio realizado.')) return;
     try {
       await apiFetch('/backup/reset', { method: 'POST' });
-      showToast('Base de datos restablecida.', 'info');
+      showToast('Base de datos restablecida.', 'success');
       await actualizarStats();
+      setTimeout(() => location.reload(), 1200);
     } catch (err) { showToast(err.message, 'error'); }
   });
 }
 
 // =========================================================================
-// CARGAR CONFIG ACTUAL
+// CARGAR CONFIGURACIÓN GLOBAL
 // =========================================================================
-function cargarConfiguracion() {
-  const config  = getConfig();
-  const usuario = Auth.getUser();
+async function cargarConfiguracion() {
+  try {
+    const res = await apiFetch('/config');
+    const c   = res.data;
 
-  if (usuario) {
-    const inputNombre   = document.getElementById('configNombre');
-    const previewAvatar = document.getElementById('previewAvatar');
-    if (inputNombre) inputNombre.value = usuario.nombre_completo || '';
-    if (previewAvatar && (usuario.avatar_url || config.avatar_url)) {
-      previewAvatar.src = usuario.avatar_url || config.avatar_url;
+    const nombreCyberEl = document.getElementById('configNombreCyber');
+    const colorPicker   = document.getElementById('configColor');
+    const preview       = document.getElementById('colorPreview');
+    const checkManual   = document.getElementById('configTasaManual');
+    const inputTasa     = document.getElementById('configTasa');
+    const displayTasa   = document.getElementById('tasaActualDisplay');
+
+    if (nombreCyberEl && c.nombre_cyber) nombreCyberEl.value = c.nombre_cyber;
+    if (colorPicker && c.theme_color)   colorPicker.value = c.theme_color;
+    if (preview && c.theme_color)       preview.style.background = c.theme_color;
+
+    if (checkManual) checkManual.checked = !!c.tasa_manual;
+    if (inputTasa) {
+      inputTasa.value    = parseFloat(c.tasa_bcv || 36.85).toFixed(2);
+      inputTasa.disabled = !c.tasa_manual;
     }
-    const inputAvatarUrl = document.getElementById('configAvatarUrl');
-    if (inputAvatarUrl) inputAvatarUrl.value = usuario.avatar_url || '';
+
+    if (displayTasa) {
+      const f = c.ultima_actualizacion_tasa
+        ? new Date(String(c.ultima_actualizacion_tasa).replace(' ', 'T')).toLocaleString('es-VE')
+        : 'automática';
+      displayTasa.innerHTML =
+        `<strong>Bs. ${parseFloat(c.tasa_bcv || 36.85).toFixed(2)}</strong> · ` +
+        `<small style="color:var(--text-muted)">${c.tasa_manual ? 'Manual' : 'BCV'} · ${escapeHtml(f)}</small>`;
+    }
+
+    if (c.theme_color) document.documentElement.style.setProperty('--brand-primary', c.theme_color);
+  } catch (err) {
+    showToast(err.message || 'Error al cargar configuración.', 'error');
   }
-
-  const inputTasa   = document.getElementById('configTasa');
-  const checkManual = document.getElementById('configTasaManual');
-  const tasaActual  = document.getElementById('tasaActualDisplay');
-  if (inputTasa)   inputTasa.value = config.tasa_bcv || 36.85;
-  if (checkManual) checkManual.checked = config.tasa_manual || false;
-  if (tasaActual) {
-    const origen = config.tasa_manual ? 'Manual' : 'API BCV';
-    const fecha  = config.ultima_actualizacion_tasa
-      ? new Date(config.ultima_actualizacion_tasa.replace(' ', 'T')).toLocaleString('es-VE')
-      : 'N/A';
-    tasaActual.innerHTML = `<strong>Bs. ${config.tasa_bcv}</strong> · <small style="color:var(--text-muted)">Origen: ${origen} · Actualizado: ${fecha}</small>`;
-  }
-
-  const colorPicker = document.getElementById('configColor');
-  if (colorPicker) colorPicker.value = config.theme_color || '#35c029';
-
-  const inputNombreCyber = document.getElementById('configNombreCyber');
-  if (inputNombreCyber) inputNombreCyber.value = config.nombre_cyber || 'CyberPOS Laneros Gamer';
 }
 
 // =========================================================================
@@ -204,28 +218,31 @@ function cargarConfiguracion() {
 // =========================================================================
 function setupFormPerfil(usuario) {
   const form      = document.getElementById('formPerfil');
-  const inputAvatar = document.getElementById('configAvatarUrl');
   const preview   = document.getElementById('previewAvatar');
   const fileInput = document.getElementById('configAvatarFile');
+  const urlInput  = document.getElementById('configAvatarUrl');
+  const nameInput = document.getElementById('configNombre');
 
-  if (inputAvatar && preview) {
-    inputAvatar.addEventListener('input', () => {
-      if (inputAvatar.value.trim()) preview.src = inputAvatar.value.trim();
-    });
-  }
+  if (nameInput && usuario) nameInput.value = usuario.nombre_completo || '';
+  if (urlInput  && usuario) urlInput.value  = usuario.avatar_url || '';
+  if (preview   && usuario && usuario.avatar_url) preview.src = usuario.avatar_url;
 
-  if (fileInput && preview) {
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        preview.src = evt.target.result;
-        if (inputAvatar) inputAvatar.value = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
+  fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target.result;
+      if (preview)  preview.src = dataUrl;
+      if (urlInput) urlInput.value = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  urlInput?.addEventListener('input', () => {
+    const val = urlInput.value.trim();
+    if (preview && val) preview.src = val;
+  });
 
   if (!form) return;
   form.addEventListener('submit', async (e) => {
@@ -234,6 +251,11 @@ function setupFormPerfil(usuario) {
     const avatarUrl = document.getElementById('configAvatarUrl')?.value.trim();
     const password  = document.getElementById('configPassword')?.value.trim();
     const password2 = document.getElementById('configPassword2')?.value.trim();
+
+    if (nombre && nombre.length > 120) {
+      showToast('El nombre no puede exceder los 120 caracteres.', 'error');
+      return;
+    }
 
     if (password && password !== password2) {
       showToast('Las contraseñas no coinciden.', 'error'); return;
@@ -288,7 +310,7 @@ function setupFormTema() {
       <button type="button" class="color-preset-btn"
         onclick="seleccionarColor('${c.valor}')"
         style="width:36px;height:36px;border-radius:50%;background:${c.valor};border:3px solid transparent;cursor:pointer;transition:all .2s"
-        title="${c.nombre}"></button>
+        title="${escapeAttr(c.nombre)}"></button>
     `).join('');
   }
 
@@ -303,7 +325,12 @@ function setupFormTema() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const color = colorPicker?.value || '#35c029';
-    const nombreCyber = document.getElementById('configNombreCyber')?.value.trim();
+    const nombreCyber = (document.getElementById('configNombreCyber')?.value || '').trim();
+
+    if (nombreCyber.length > 150) {
+      showToast('El nombre del negocio no puede exceder los 150 caracteres.', 'error');
+      return;
+    }
 
     try {
       const res = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ theme_color: color, nombre_cyber: nombreCyber }) });
@@ -345,8 +372,10 @@ function setupFormTasa() {
       if (!res.ok) throw new Error('No se pudo consultar la API BCV.');
       const d = await res.json();
       const tasa = d.promedio || d.precio;
-      if (!tasa) throw new Error('La API no devolvió una tasa válida.');
-      const upd = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: tasa, tasa_manual: false }) });
+      if (!tasa || isNaN(Number(tasa)) || Number(tasa) <= 0) {
+        throw new Error('La API no devolvió una tasa válida mayor a 0.');
+      }
+      const upd = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: Number(tasa), tasa_manual: false }) });
       refrescarConfigGlobal(upd.data);
       showToast(`Tasa actualizada: Bs. ${parseFloat(tasa).toFixed(2)}`, 'success');
       cargarConfiguracion();
@@ -361,9 +390,19 @@ function setupFormTasa() {
   if (!form) return;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const tasa   = parseFloat(inputTasa?.value);
+    const rawTasa = (inputTasa?.value || '').trim();
+    if (rawTasa === '' || isNaN(Number(rawTasa))) {
+      showToast('Tasa BCV inválida: debe ser un valor numérico.', 'error');
+      inputTasa?.focus();
+      return;
+    }
+    const tasa = Number(rawTasa);
+    if (tasa <= 0) {
+      showToast('Tasa BCV inválida: debe ser mayor a 0.', 'error');
+      inputTasa?.focus();
+      return;
+    }
     const manual = !!checkManual?.checked;
-    if (!tasa || tasa <= 0) { showToast('Ingresa una tasa válida.', 'error'); return; }
 
     try {
       const res = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: tasa, tasa_manual: manual }) });

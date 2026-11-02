@@ -1,7 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Solicitud de tiempo.
- */
+// Modelo de solicitudes de tiempo
 
 class Solicitud extends Model
 {
@@ -31,19 +29,53 @@ class Solicitud extends Model
         return $s ? $this->cast($s) : null;
     }
 
+    private function tieneSolicitudPendiente(?int $equipoId): bool
+    {
+        if ($equipoId === null) {
+            return false;
+        }
+        $st = $this->db->prepare(
+            'SELECT COUNT(*) FROM solicitudes_tiempo
+             WHERE equipo_id = ? AND estado IN ("pendiente", "esperando_admin")'
+        );
+        $st->execute([$equipoId]);
+        return (int) $st->fetchColumn() > 0;
+    }
+
     public function crear(?int $equipoId, ?int $clienteId, string $clienteNombre, int $minutos, float $monto): array
     {
+        if ($minutos <= 0) {
+            return ['success' => false, 'error' => 'Minutos de alquiler inválidos: debe ser mayor a 0.'];
+        }
+        if ($minutos > 1440) {
+            return ['success' => false, 'error' => 'Minutos de alquiler excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).'];
+        }
+
+        $clienteNombre = trim(strip_tags($clienteNombre));
+        if ($clienteNombre === '') {
+            $clienteNombre = 'Cliente';
+        }
+        if (mb_strlen($clienteNombre) > 120) {
+            return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
+        }
+
+        if ($monto < 0 || is_nan($monto) || is_infinite($monto)) {
+            return ['success' => false, 'error' => 'El monto no puede ser negativo ni inválido.'];
+        }
+
+        // Evitar solicitudes duplicadas para la misma estación
+        if ($this->tieneSolicitudPendiente($equipoId)) {
+            return ['success' => false, 'error' => 'Esta estación ya tiene una solicitud de tiempo pendiente. Espera a que sea aprobada o cancélala antes de enviar otra.'];
+        }
+
         $st = $this->db->prepare(
             'INSERT INTO solicitudes_tiempo (equipo_id, cliente_id, cliente_nombre, minutos, monto, estado, confirmado_admin, confirmado_cliente, fecha)
              VALUES (?, ?, ?, ?, ?, "pendiente", 0, 0, NOW())'
         );
-        $st->execute([$equipoId, $clienteId, $clienteNombre, $minutos, $monto]);
+        $st->execute([$equipoId, $clienteId, $clienteNombre, $minutos, round($monto, 2)]);
         return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Solicitud enviada.'];
     }
 
-    /**
-     * @param string $quien 'admin' o 'cliente'
-     */
     public function confirmar(int $id, string $quien): array
     {
         $sol = $this->getById($id);
@@ -54,18 +86,40 @@ class Solicitud extends Model
             return ['success' => false, 'error' => 'La solicitud ya fue cerrada.'];
         }
 
-        // La aprobación del administrador (caja) es definitiva: se suma el
-        // tiempo al equipo y la solicitud queda completada de inmediato.
         if ($quien === 'admin') {
-            $this->db->prepare('UPDATE solicitudes_tiempo SET confirmado_admin = 1, estado = "completada" WHERE id = ?')->execute([$id]);
-            if ($sol['equipo_id']) {
-                (new Equipo())->agregarTiempo((int) $sol['equipo_id'], (int) $sol['minutos'], (string) $sol['cliente_nombre']);
+            // Aprobar solicitud y sumar tiempo al equipo
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare(
+                    'UPDATE solicitudes_tiempo SET confirmado_admin = 1, estado = "completada" WHERE id = ?'
+                )->execute([$id]);
+
+                if ($sol['equipo_id']) {
+                    $equipoModel = new Equipo();
+                    $resEquipo   = $equipoModel->agregarTiempo(
+                        (int) $sol['equipo_id'],
+                        (int) $sol['minutos'],
+                        (string) $sol['cliente_nombre']
+                    );
+                    if (!$resEquipo['success']) {
+                        throw new \RuntimeException($resEquipo['error']);
+                    }
+                }
+
+                $this->db->commit();
+            } catch (\Throwable $ex) {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+                return ['success' => false, 'error' => 'Error al aprobar la solicitud: ' . $ex->getMessage()];
             }
+
             return ['success' => true, 'data' => $this->getById($id), 'message' => 'Tiempo otorgado al cliente.'];
         }
 
-        // Confirmación del cliente: informativa (el admin ya cerró la solicitud).
-        $this->db->prepare('UPDATE solicitudes_tiempo SET confirmado_cliente = 1 WHERE id = ?')->execute([$id]);
+        $this->db->prepare(
+            'UPDATE solicitudes_tiempo SET confirmado_cliente = 1 WHERE id = ?'
+        )->execute([$id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Confirmación registrada.'];
     }
 
@@ -74,7 +128,9 @@ class Solicitud extends Model
         if (!$this->getById($id)) {
             return ['success' => false, 'error' => 'Solicitud no encontrada.'];
         }
-        $this->db->prepare('UPDATE solicitudes_tiempo SET estado = "cancelada" WHERE id = ?')->execute([$id]);
+        $this->db->prepare(
+            'UPDATE solicitudes_tiempo SET estado = "cancelada" WHERE id = ?'
+        )->execute([$id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Solicitud cancelada.'];
     }
 }

@@ -125,7 +125,7 @@
       <fieldset class="form-fields">
         <p class="form-group">
           <label for="snackName">Nombre del Producto</label>
-          <input type="text" id="snackName" placeholder="Ej. Coca Cola 500ml" required>
+          <input type="text" id="snackName" placeholder="Ej. Coca Cola 500ml" maxlength="150" required>
         </p>
         <p class="form-group">
           <label for="snackPrice">Precio (USD $)</label>
@@ -133,7 +133,7 @@
         </p>
         <p class="form-group">
           <label for="snackStock">Stock</label>
-          <input type="number" id="snackStock" min="0" placeholder="0" required>
+          <input type="number" id="snackStock" min="0" step="1" placeholder="0" required>
         </p>
         <p class="form-group">
           <label for="snackImage">URL de Imagen</label>
@@ -147,7 +147,7 @@
             <option value="comida">Comida</option>
           </select>
           <!-- Categoría libre para personalizados -->
-          <input type="text" id="snackCategoryCustom" placeholder="Ej. Electrónicos, Accesorios, Servicios..." style="display:none;padding:10px;border-radius:6px;background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);width:100%;margin-top:4px">
+          <input type="text" id="snackCategoryCustom" placeholder="Ej. Electrónicos, Accesorios, Servicios..." maxlength="60" style="display:none;padding:10px;border-radius:6px;background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);width:100%;margin-top:4px">
         </p>
       </fieldset>
       <footer class="modal-actions">
@@ -162,7 +162,7 @@
 <dialog id="modalDelete">
   <article class="modal-content">
     <header class="modal-header">
-      <h3>⚠️ Confirmar Eliminación</h3>
+      <h3 id="modalTitleDelete">⚠️ Confirmar Eliminación</h3>
       <button class="close-modal" id="btnCloseDelete">×</button>
     </header>
     <form onsubmit="event.preventDefault()">

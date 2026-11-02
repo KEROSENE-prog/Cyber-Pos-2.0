@@ -26,6 +26,9 @@ abstract class Controller
             return $cached;
         }
         $decoded = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->fail('JSON malformado en la petición: ' . json_last_error_msg(), 400);
+        }
         $cached = is_array($decoded) ? $decoded : [];
         return $cached;
     }

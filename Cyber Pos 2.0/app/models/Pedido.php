@@ -1,7 +1,5 @@
 <?php
-/**
- * CyberPOS - Modelo Pedido de snacks.
- */
+// Modelo de pedidos de snacks
 
 class Pedido extends Model
 {
@@ -33,12 +31,97 @@ class Pedido extends Model
 
     public function crear(?int $equipoId, string $equipoNombre, string $clienteNombre, array $items, float $total): array
     {
-        $st = $this->db->prepare(
-            'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
-             VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'
-        );
-        $st->execute([$equipoId, $equipoNombre, $clienteNombre, json_encode($items, JSON_UNESCAPED_UNICODE), $total]);
-        return ['success' => true, 'data' => $this->getById((int) $this->db->lastInsertId()), 'message' => 'Pedido enviado.'];
+        if (empty($items)) {
+            return ['success' => false, 'error' => 'El pedido debe contener al menos un producto.'];
+        }
+
+        $equipoNombre = trim(strip_tags($equipoNombre));
+        if ($equipoNombre === '') {
+            $equipoNombre = 'Mostrador';
+        }
+        if (mb_strlen($equipoNombre) > 100) {
+            $equipoNombre = mb_substr($equipoNombre, 0, 100);
+        }
+
+        $clienteNombre = trim(strip_tags($clienteNombre));
+        if ($clienteNombre === '') {
+            $clienteNombre = 'Cliente';
+        }
+        if (mb_strlen($clienteNombre) > 120) {
+            $clienteNombre = mb_substr($clienteNombre, 0, 120);
+        }
+
+        if ($total < 0 || is_nan($total) || is_infinite($total)) {
+            return ['success' => false, 'error' => 'El total del pedido no puede ser negativo ni inválido.'];
+        }
+
+        $itemsSanitizados = [];
+        foreach ($items as $item) {
+            $nombreItem = isset($item['nombre']) ? trim(strip_tags((string) $item['nombre'])) : 'Producto';
+            $cantItem   = isset($item['cantidad']) ? max(1, (int) $item['cantidad']) : 1;
+            $precioItem = isset($item['precio']) && is_numeric($item['precio']) ? max(0.0, (float) $item['precio']) : 0.0;
+            $itemsSanitizados[] = [
+                'id'       => isset($item['id']) ? (int) $item['id'] : 0,
+                'nombre'   => mb_substr($nombreItem, 0, 150),
+                'precio'   => round($precioItem, 2),
+                'cantidad' => $cantItem,
+            ];
+        }
+
+        // Verificar stock disponible y registrar el pedido
+        $this->db->beginTransaction();
+        try {
+            $stStock = $this->db->prepare('SELECT id, nombre, stock FROM productos WHERE id = ?');
+            foreach ($itemsSanitizados as $item) {
+                if ($item['id'] <= 0) {
+                    continue;
+                }
+                $stStock->execute([$item['id']]);
+                $prod = $stStock->fetch();
+                if ($prod && (int) $prod['stock'] < $item['cantidad']) {
+                    throw new \RuntimeException(
+                        "Stock insuficiente para \"{$prod['nombre']}\": disponible {$prod['stock']}, solicitado {$item['cantidad']}."
+                    );
+                }
+            }
+
+            $stDesc = $this->db->prepare(
+                'UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?'
+            );
+            foreach ($itemsSanitizados as $item) {
+                if ($item['id'] <= 0) {
+                    continue;
+                }
+                $stDesc->execute([$item['cantidad'], $item['id'], $item['cantidad']]);
+                if ($stDesc->rowCount() === 0) {
+                    throw new \RuntimeException(
+                        "Stock insuficiente para el producto #{$item['id']} al momento de descontar."
+                    );
+                }
+            }
+
+            $st = $this->db->prepare(
+                'INSERT INTO pedidos_snacks (equipo_id, equipo_nombre, cliente_nombre, items, total, estado, fecha)
+                 VALUES (?, ?, ?, ?, ?, "pendiente", NOW())'
+            );
+            $st->execute([
+                $equipoId,
+                $equipoNombre,
+                $clienteNombre,
+                json_encode($itemsSanitizados, JSON_UNESCAPED_UNICODE),
+                round($total, 2),
+            ]);
+            $pedidoId = (int) $this->db->lastInsertId();
+
+            $this->db->commit();
+        } catch (\Throwable $ex) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $ex->getMessage()];
+        }
+
+        return ['success' => true, 'data' => $this->getById($pedidoId), 'message' => 'Pedido enviado.'];
     }
 
     public function cambiarEstado(int $id, string $estado): array
@@ -46,6 +129,7 @@ class Pedido extends Model
         if (!$this->getById($id)) {
             return ['success' => false, 'error' => 'Pedido no encontrado.'];
         }
+        $estado = in_array($estado, ['pendiente', 'completado', 'cancelado'], true) ? $estado : 'pendiente';
         $st = $this->db->prepare('UPDATE pedidos_snacks SET estado = ? WHERE id = ?');
         $st->execute([$estado, $id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Pedido actualizado.'];

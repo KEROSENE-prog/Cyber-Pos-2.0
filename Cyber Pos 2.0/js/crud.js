@@ -1,9 +1,4 @@
-/**
- * CyberPOS — crud.js v3
- * Inventario de Snacks (catálogo estándar) + Catálogo Personalizado.
- * Precio en Bs (tasa BCV) mostrado en gris pequeño debajo del precio USD.
- */
-
+// Inventario de snacks y productos personalizados.
 let currentEditId   = null;
 let currentDeleteId = null;
 let currentType     = 'snacks'; // 'snacks' | 'personalizados'
@@ -103,7 +98,7 @@ function renderizarProductos(productos, gridId, tipo) {
   if (!grid) return;
   const tasa = getTasaBCV();
 
-  if (productos.length === 0) {
+  if (!Array.isArray(productos) || productos.length === 0) {
     const tipoLabel = tipo === 'personalizados' ? 'productos personalizados' : 'snacks';
     grid.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);background:var(--bg-card);border-radius:12px;border:1px dashed var(--border-color)">
@@ -136,7 +131,7 @@ function renderizarProductos(productos, gridId, tipo) {
           </p>
         </section>
         <footer class="card-actions">
-          <button class="secondary btn-editar"
+          <button type="button" class="secondary btn-editar"
             data-id="${prod.id}"
             data-tipo="${tipo}"
             data-nombre="${escapeAttr(prod.nombre)}"
@@ -146,7 +141,7 @@ function renderizarProductos(productos, gridId, tipo) {
             data-categoria="${escapeAttr(catLabel)}">
             ✏️ Editar
           </button>
-          <button class="danger btn-eliminar"
+          <button type="button" class="danger btn-eliminar"
             data-id="${prod.id}"
             data-tipo="${tipo}"
             data-nombre="${escapeAttr(prod.nombre)}">
@@ -163,7 +158,7 @@ function renderizarProductos(productos, gridId, tipo) {
 // VINCULAR EVENTOS DE TARJETAS
 // =========================================================================
 function vincularEventosTarjetas(gridId, tipo) {
-  const grid     = document.getElementById(gridId);
+  const grid        = document.getElementById(gridId);
   const modalForm   = document.getElementById('modalForm');
   const modalDelete = document.getElementById('modalDelete');
   const modalTitle  = document.getElementById('modalTitle');
@@ -181,7 +176,6 @@ function vincularEventosTarjetas(gridId, tipo) {
 
       const catSelect = document.getElementById('snackCategory');
       const catCustom = document.getElementById('snackCategoryCustom');
-      const isStandard = ['bebidas', 'comida'].includes(btn.dataset.categoria);
 
       if (currentType === 'personalizados') {
         if (catSelect) catSelect.style.display = 'none';
@@ -254,25 +248,68 @@ function setupModales() {
   if (snackForm) {
     snackForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nombre     = document.getElementById('snackName').value.trim();
-      const precio     = parseFloat(document.getElementById('snackPrice').value);
-      const stock      = parseInt(document.getElementById('snackStock').value, 10);
-      const url_imagen = document.getElementById('snackImage').value.trim();
+      const nombreInput = document.getElementById('snackName');
+      const precioInput = document.getElementById('snackPrice');
+      const stockInput  = document.getElementById('snackStock');
+      const imgInput    = document.getElementById('snackImage');
 
+      const nombre     = (nombreInput?.value || '').trim();
+      const rawPrice   = (precioInput?.value || '').trim();
+      const rawStock   = (stockInput?.value || '').trim();
+      const url_imagen = (imgInput?.value || '').trim();
+
+      // Validación de Nombre
+      if (!nombre) {
+        showToast('El nombre del producto es obligatorio y no puede contener solo espacios.', 'error');
+        nombreInput?.focus();
+        return;
+      }
+      if (nombre.length > 150) {
+        showToast('El nombre del producto no puede exceder los 150 caracteres.', 'error');
+        nombreInput?.focus();
+        return;
+      }
+
+      // Validación de Precio
+      if (rawPrice === '' || isNaN(Number(rawPrice))) {
+        showToast('Precio inválido: debe ser un valor numérico.', 'error');
+        precioInput?.focus();
+        return;
+      }
+      const precio = Number(rawPrice);
+      if (precio <= 0) {
+        showToast('Precio inválido: debe ser mayor a 0.', 'error');
+        precioInput?.focus();
+        return;
+      }
+
+      // Validación de Stock (entero >= 0, sin decimales)
+      if (rawStock === '' || isNaN(Number(rawStock)) || !Number.isInteger(Number(rawStock))) {
+        showToast('El stock debe ser un número entero sin decimales.', 'error');
+        stockInput?.focus();
+        return;
+      }
+      const stock = Number(rawStock);
+      if (stock < 0) {
+        showToast('El stock no puede ser negativo.', 'error');
+        stockInput?.focus();
+        return;
+      }
+
+      // Categoría
       let categoria;
       if (currentType === 'personalizados') {
         categoria = (catCustom?.value || '').trim() || 'Otro';
       } else {
-        categoria = catSelect?.value || 'bebidas';
+        categoria = (catSelect?.value || 'bebidas').trim();
       }
-
-      if (!nombre || isNaN(precio) || isNaN(stock)) {
-        showToast('Completa todos los campos requeridos.', 'error');
+      if (categoria.length > 60) {
+        showToast('La categoría no puede exceder los 60 caracteres.', 'error');
         return;
       }
 
-      const payload    = { nombre, precio, stock, url_imagen, categoria };
-      const submitBtn  = snackForm.querySelector('button[type="submit"]');
+      const payload   = { nombre, precio, stock, url_imagen, categoria };
+      const submitBtn = snackForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       submitBtn.textContent = 'Guardando...';
 
@@ -331,12 +368,22 @@ function setupModales() {
   }
 }
 
-// Helpers
+// Helpers seguros contra XSS
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

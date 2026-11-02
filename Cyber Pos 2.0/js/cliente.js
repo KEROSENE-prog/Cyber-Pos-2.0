@@ -1,12 +1,27 @@
-/**
- * CyberPOS — cliente.js v4
- * Vista cliente: tiempo restante, solicitud de tiempo, pedido de snacks con carrito.
- * Backend PHP: /equipos, /productos, /solicitudes, /pedidos, /config.
- */
-
+// Vista cliente: estado de tiempo, solicitud de minutos y pedido de snacks.
 let carrito      = [];
 let miEquipoId   = null;
 let ultimaSolicitudPendienteId = null;
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!Auth.requireAuth('cliente')) return;
@@ -122,7 +137,7 @@ function setupSolicitudTiempo(usuario) {
   modal.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (inputMin) inputMin.value = btn.dataset.min;
-      calcMonto(parseInt(btn.dataset.min));
+      calcMonto(parseInt(btn.dataset.min, 10));
     });
   });
 
@@ -134,8 +149,24 @@ function setupSolicitudTiempo(usuario) {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const min = parseInt(inputMin?.value, 10);
-      if (!min || min < 5) { showToast('El tiempo mínimo es 5 minutos.', 'error'); return; }
+      const rawMin = (inputMin?.value || '').trim();
+
+      if (rawMin === '' || isNaN(Number(rawMin)) || !Number.isInteger(Number(rawMin))) {
+        showToast('Minutos inválidos: debe ser un número entero sin decimales.', 'error');
+        inputMin?.focus();
+        return;
+      }
+      const min = Number(rawMin);
+      if (min < 5) {
+        showToast('El tiempo mínimo permitido es 5 minutos.', 'error');
+        inputMin?.focus();
+        return;
+      }
+      if (min > 1440) {
+        showToast('Minutos excesivos: el tiempo máximo permitido es 1440 minutos (24 horas).', 'error');
+        inputMin?.focus();
+        return;
+      }
 
       const eq     = getEquiposCache().find(e => String(e.id) === String(miEquipoId)) || { tarifa_por_hora: 1.5 };
       const tarifa = eq.tarifa_por_hora || 1.5;
@@ -147,7 +178,7 @@ function setupSolicitudTiempo(usuario) {
           body: JSON.stringify({
             equipo_id: miEquipoId,
             cliente_id: usuario.id,
-            cliente_nombre: usuario.nombre_completo,
+            cliente_nombre: (usuario.nombre_completo || 'Cliente').trim(),
             minutos: min,
             monto: monto
           })
@@ -168,7 +199,9 @@ function setupSolicitudTiempo(usuario) {
       await apiFetch(`/solicitudes/${sol.id}/cancelar`, { method: 'POST' });
       showToast('Solicitud cancelada.', 'info');
       verificarSolicitudesPendientes(usuario);
-    } catch (err) { showToast(err.message, 'error'); }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   });
 }
 
@@ -176,41 +209,38 @@ async function obtenerSolicitudPendiente(usuario) {
   try {
     const res = await apiFetch('/solicitudes');
     return (res.data || []).find(s =>
-      String(s.cliente_id) === String(usuario.id) &&
-      s.estado !== 'completada' && s.estado !== 'cancelada'
+      (s.cliente_id === usuario.id || (s.cliente_nombre && s.cliente_nombre.toLowerCase() === (usuario.nombre_completo || '').toLowerCase())) &&
+      (s.estado === 'pendiente' || s.estado === 'esperando_admin')
     ) || null;
-  } catch (err) {
-    return undefined;
+  } catch {
+    return null;
   }
 }
 
-// =========================================================================
-// VERIFICAR SOLICITUDES PENDIENTES
-// =========================================================================
 async function verificarSolicitudesPendientes(usuario) {
   const card = document.getElementById('cardSolicitudPendiente');
-  const info = document.getElementById('solicitudTextoInfo');
-  if (card) {
-    const sol = await obtenerSolicitudPendiente(usuario);
-    if (sol) {
-      card.style.display = 'block';
-      const tasa = getTasaBCV();
-      if (info) info.innerHTML = `Solicitud pendiente: +${sol.minutos} min · $${sol.monto} / Bs. ${(sol.monto * tasa).toFixed(2)}`;
-      ultimaSolicitudPendienteId = sol.id;
-    } else {
-      card.style.display = 'none';
-      if (ultimaSolicitudPendienteId) {
-        showToast('✅ Caja aprobó tu solicitud. El tiempo ya fue añadido a tu estación.', 'success', 5000);
-        ultimaSolicitudPendienteId = null;
-        pintarEstadoTiempo(getEquiposCache());
-      }
+  const txt  = document.getElementById('solicitudTextoInfo');
+  if (!card) return;
+
+  const sol = await obtenerSolicitudPendiente(usuario);
+  if (sol) {
+    const tasa  = getTasaBCV();
+    const monto = parseFloat(sol.monto || 0);
+    if (txt) {
+      txt.textContent = `Solicitud pendiente: +${sol.minutos} min ($${monto.toFixed(2)} / Bs. ${(monto * tasa).toFixed(2)})`;
+    }
+    card.style.display = 'block';
+    ultimaSolicitudPendienteId = sol.id;
+  } else {
+    card.style.display = 'none';
+    if (ultimaSolicitudPendienteId) {
+      ultimaSolicitudPendienteId = null;
     }
   }
-  setTimeout(() => verificarSolicitudesPendientes(usuario), 3000);
 }
 
 // =========================================================================
-// SNACKS CLIENTE (CATÁLOGO + PRECIOS EN BS)
+// SNACKS DEL CLIENTE
 // =========================================================================
 async function cargarSnacksCliente() {
   const grid = document.getElementById('clienteSnacksGrid');
@@ -221,7 +251,7 @@ async function cargarSnacksCliente() {
     const res = await apiFetch('/productos');
     snacks = res.data || [];
   } catch (err) {
-    showToast(err.message || 'Error al cargar productos.', 'error');
+    showToast(err.message || 'Error al cargar catálogo.', 'error');
     return;
   }
 
@@ -233,8 +263,9 @@ async function cargarSnacksCliente() {
   }
 
   grid.innerHTML = snacks.map(snack => {
-    const precio   = parseFloat(snack.precio).toFixed(2);
+    const precio   = parseFloat(snack.precio || 0).toFixed(2);
     const precioBs = (parseFloat(precio) * tasa).toFixed(2);
+    const agotado  = (parseInt(snack.stock || 0, 10)) <= 0;
     const img      = snack.url_imagen || 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80';
     return `
       <article class="snack-card">
@@ -253,11 +284,11 @@ async function cargarSnacksCliente() {
         <footer class="card-actions">
           <button type="button" class="primary btn-agregar-carrito"
             data-id="${snack.id}"
-            data-origen="${snack._origen || 'snacks'}"
+            data-origen="${escapeAttr(snack._origen || 'snacks')}"
             data-nombre="${escapeAttr(snack.nombre)}"
             data-precio="${snack.precio}"
-            ${snack.stock <= 0 ? 'disabled' : ''}>
-            ${snack.stock <= 0 ? 'Agotado' : '+ Agregar'}
+            ${agotado ? 'disabled' : ''}>
+            ${agotado ? 'Agotado' : '+ Agregar'}
           </button>
         </footer>
       </article>`;
@@ -279,11 +310,16 @@ async function cargarSnacksCliente() {
 // CARRITO
 // =========================================================================
 function agregarAlCarrito(producto) {
-  const existente = carrito.find(i => String(i.id) === String(producto.id) && i.origen === producto.origen);
+  const precio = Number(producto.precio);
+  if (isNaN(precio) || precio <= 0) return;
+  const id = parseInt(producto.id, 10);
+  if (isNaN(id) || id <= 0) return;
+
+  const existente = carrito.find(i => String(i.id) === String(id) && i.origen === producto.origen);
   if (existente) {
-    existente.cantidad += 1;
+    existente.cantidad = Math.floor(existente.cantidad) + 1;
   } else {
-    carrito.push({ ...producto, cantidad: 1 });
+    carrito.push({ id, origen: producto.origen, nombre: String(producto.nombre).trim(), precio, cantidad: 1 });
   }
   renderizarCarrito();
   showToast(`"${producto.nombre}" agregado al carrito`, 'info', 1500);
@@ -307,41 +343,75 @@ function renderizarCarrito() {
     <li style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color)">
       <span style="flex:1;font-size:.9rem">${escapeHtml(item.nombre)}</span>
       <span style="display:flex;align-items:center;gap:6px">
-        <button onclick="cambiarCantidad(${i}, -1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
+        <button type="button" class="btn-cart-minus" data-idx="${i}" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">−</button>
         <span style="min-width:20px;text-align:center">${item.cantidad}</span>
-        <button onclick="cambiarCantidad(${i}, 1)" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
+        <button type="button" class="btn-cart-plus" data-idx="${i}" style="background:rgba(255,255,255,.1);border:none;color:var(--text-main);width:24px;height:24px;border-radius:50%;cursor:pointer">+</button>
         <strong style="min-width:50px;text-align:right;color:var(--brand-primary)">$${(item.precio * item.cantidad).toFixed(2)}</strong>
-        <button onclick="quitarDelCarrito(${i})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem">✕</button>
+        <button type="button" class="btn-cart-remove" data-idx="${i}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem">✕</button>
       </span>
     </li>
   `).join('');
 
-  const total = carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
+  lista.querySelectorAll('.btn-cart-minus').forEach(b => {
+    b.addEventListener('click', () => cambiarCantidad(parseInt(b.dataset.idx, 10), -1));
+  });
+  lista.querySelectorAll('.btn-cart-plus').forEach(b => {
+    b.addEventListener('click', () => cambiarCantidad(parseInt(b.dataset.idx, 10), 1));
+  });
+  lista.querySelectorAll('.btn-cart-remove').forEach(b => {
+    b.addEventListener('click', () => quitarDelCarrito(parseInt(b.dataset.idx, 10)));
+  });
+
+  const total = carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
   if (totalEl) totalEl.innerHTML = `$${total.toFixed(2)} <small style="display:block;color:#64748b;font-size:.75rem">Bs. ${(total * tasa).toFixed(2)}</small>`;
   if (btnPedir) btnPedir.disabled = false;
 }
 
 function cambiarCantidad(idx, delta) {
-  carrito[idx].cantidad += delta;
-  if (carrito[idx].cantidad <= 0) carrito.splice(idx, 1);
+  if (!carrito[idx]) return;
+  const deltaInt = parseInt(delta, 10);
+  if (isNaN(deltaInt)) return;
+
+  const nuevaCant = Math.floor(carrito[idx].cantidad) + deltaInt;
+  if (nuevaCant <= 0) {
+    carrito.splice(idx, 1);
+  } else {
+    carrito[idx].cantidad = nuevaCant;
+  }
   renderizarCarrito();
 }
 
 function quitarDelCarrito(idx) {
-  carrito.splice(idx, 1);
-  renderizarCarrito();
+  if (carrito[idx]) {
+    carrito.splice(idx, 1);
+    renderizarCarrito();
+  }
 }
+
+window.cambiarCantidad = cambiarCantidad;
+window.quitarDelCarrito = quitarDelCarrito;
 
 function setupCarrito(usuario) {
   const btnPedir = document.getElementById('btnPedirLugar');
   if (!btnPedir) return;
 
   btnPedir.addEventListener('click', async () => {
-    if (carrito.length === 0) { showToast('El carrito está vacío.', 'error'); return; }
+    if (carrito.length === 0) {
+      showToast('El carrito está vacío.', 'error');
+      return;
+    }
+
+    for (const item of carrito) {
+      if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) {
+        showToast(`Cantidad inválida para "${item.nombre}". Debe ser un número entero mayor a 0.`, 'error');
+        return;
+      }
+    }
+
     const eq       = getEquiposCache().find(e => String(e.id) === String(miEquipoId));
     const eqNombre = eq ? eq.nombre_equipo : 'Mostrador';
-    const total    = carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
-    const items    = carrito.map(i => ({ id: i.id, origen: i.origen, nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }));
+    const total    = carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
+    const items    = carrito.map(i => ({ id: parseInt(i.id, 10), origen: i.origen, nombre: i.nombre, precio: i.precio, cantidad: Math.floor(i.cantidad) }));
 
     try {
       await apiFetch('/pedidos', {
@@ -349,7 +419,7 @@ function setupCarrito(usuario) {
         body: JSON.stringify({
           equipo_id: miEquipoId,
           equipo_nombre: eqNombre,
-          cliente_nombre: usuario.nombre_completo,
+          cliente_nombre: (usuario.nombre_completo || 'Cliente').trim(),
           items: items,
           total: total
         })
@@ -361,13 +431,4 @@ function setupCarrito(usuario) {
       showToast(err.message || 'Error al enviar pedido.', 'error');
     }
   });
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
