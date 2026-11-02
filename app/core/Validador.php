@@ -17,6 +17,22 @@ final class Validador
         return trim(strip_tags((string) ($valor ?? '')));
     }
 
+    /** Normaliza una URL de imagen y descarta esquemas o longitudes peligrosas. */
+    public static function urlImagen($valor, bool $permitirData = false): string
+    {
+        $url = self::texto($valor);
+        if ($url === '' || mb_strlen($url, 'UTF-8') > 2000) {
+            return '';
+        }
+        if (preg_match('/[\x00-\x1F\x7F]/', $url)) {
+            return '';
+        }
+        $patron = $permitirData
+            ? '/^(https?:\/\/|\/|\.\/|data:image\/[a-zA-Z0-9\+\-\.]+;base64,|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i'
+            : '/^(https?:\/\/|\/|\.\/|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i';
+        return preg_match($patron, $url) ? $url : '';
+    }
+
     /** Valida un texto obligatorio y su longitud maxima (VARCHAR de la BD). */
     public static function errorTexto($valor, int $max, string $campo, bool $obligatorio = true): ?string
     {

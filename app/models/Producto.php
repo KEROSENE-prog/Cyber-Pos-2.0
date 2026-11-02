@@ -16,16 +16,10 @@ class Producto extends Model
         return $p;
     }
 
-    private function sanitizarUrlImagen(string $url): string
+    private function sanitizarUrlImagen($url): string
     {
-        $url = trim(strip_tags($url));
-        if ($url === '' || mb_strlen($url, 'UTF-8') > 2000) {
-            return self::IMAGEN_DEFAULT;
-        }
-        if (!preg_match('/^(https?:\/\/|\/|\.\/|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
-            return self::IMAGEN_DEFAULT;
-        }
-        return $url;
+        $url = Validador::urlImagen($url);
+        return $url !== '' ? $url : self::IMAGEN_DEFAULT;
     }
 
     public function getAll(string $categoria = 'all', string $busqueda = '', string $origen = 'snacks'): array
@@ -35,11 +29,11 @@ class Producto extends Model
         $params = [$origen];
         if ($categoria !== '' && strtolower($categoria) !== 'all') {
             $sql .= ' AND LOWER(categoria) = ?';
-            $params[] = strtolower($categoria);
+            $params[] = strtolower(trim($categoria));
         }
         if ($busqueda !== '') {
             $sql .= ' AND LOWER(nombre) LIKE ?';
-            $params[] = '%' . strtolower($busqueda) . '%';
+            $params[] = '%' . strtolower(trim($busqueda)) . '%';
         }
         $sql .= ' ORDER BY id';
         $st = $this->db->prepare($sql);
@@ -62,7 +56,7 @@ class Producto extends Model
         $params = [];
         if ($busqueda !== '') {
             $sql .= ' WHERE LOWER(nombre) LIKE ?';
-            $params[] = '%' . strtolower($busqueda) . '%';
+            $params[] = '%' . strtolower(trim($busqueda)) . '%';
         }
         $sql .= ' ORDER BY origen, id';
         $st = $this->db->prepare($sql);
@@ -104,7 +98,7 @@ class Producto extends Model
             return ['success' => false, 'error' => $error];
         }
 
-        $imagen = $this->sanitizarUrlImagen((string) ($data['url_imagen'] ?? ''));
+        $imagen = $this->sanitizarUrlImagen($data['url_imagen'] ?? '');
 
         $st = $this->db->prepare(
             'INSERT INTO productos (nombre, precio, stock, url_imagen, categoria, origen, fecha_creacion)
@@ -158,7 +152,7 @@ class Producto extends Model
 
         $imagen = $actual['url_imagen'];
         if (array_key_exists('url_imagen', $data)) {
-            $imagen = $this->sanitizarUrlImagen((string) $data['url_imagen']);
+            $imagen = $this->sanitizarUrlImagen($data['url_imagen']);
         }
 
         $st = $this->db->prepare(

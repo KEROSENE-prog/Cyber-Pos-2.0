@@ -15,16 +15,9 @@ class Configuracion extends Model
         return $c;
     }
 
-    private function sanitizarAvatar(string $url): string
+    private function sanitizarAvatar($url): string
     {
-        $url = trim(strip_tags($url));
-        if ($url === '' || mb_strlen($url, 'UTF-8') > 2000) {
-            return '';
-        }
-        if (!preg_match('/^(https?:\/\/|\/|\.\/|data:image\/[a-zA-Z0-9\+\-\.]+;base64,|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
-            return '';
-        }
-        return $url;
+        return Validador::urlImagen($url, true);
     }
 
     public function get(): array
@@ -80,7 +73,7 @@ class Configuracion extends Model
         }
         if (array_key_exists('avatar_url', $data)) {
             $sets[] = 'avatar_url = ?';
-            $params[] = $this->sanitizarAvatar((string) $data['avatar_url']);
+            $params[] = $this->sanitizarAvatar($data['avatar_url']);
         }
         if (array_key_exists('precio_hora_pc', $data)) {
             $error = Validador::errorDecimalPositivo($data['precio_hora_pc'], 'precio por hora de PC');

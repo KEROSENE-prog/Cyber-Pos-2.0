@@ -9,8 +9,8 @@ class ProductoController extends Controller
     private function filtros(): array
     {
         return [
-            'categoria' => trim((string) $this->input('categoria', 'all')),
-            'busqueda'  => trim((string) $this->input('busqueda', '')),
+            'categoria' => mb_substr(Validador::texto($this->input('categoria', 'all')), 0, 60, 'UTF-8'),
+            'busqueda'  => mb_substr(Validador::texto($this->input('busqueda', '')), 0, 150, 'UTF-8'),
         ];
     }
 
