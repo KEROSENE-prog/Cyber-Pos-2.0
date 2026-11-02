@@ -44,9 +44,18 @@ try {
 
     $router->dispatch($method, (string) $path);
 } catch (Throwable $e) {
-    http_response_code(500);
+    error_log(sprintf(
+        '[CyberPOS] Error fatal en la API: %s en %s:%d',
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()
+    ));
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
     echo json_encode([
         'success' => false,
-        'error'   => 'Error interno del servidor: ' . $e->getMessage(),
-    ], JSON_UNESCAPED_UNICODE);
+        'error'   => 'Error interno del servidor. Intenta de nuevo.',
+    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 }

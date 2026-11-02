@@ -134,11 +134,14 @@ function setupSolicitudTiempo(usuario) {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const min = parseInt(inputMin?.value, 10);
-      if (!min || min < 5) { showToast('El tiempo mínimo es 5 minutos.', 'error'); return; }
+      const vMin = Validacion.entero(inputMin?.value, {
+        campo: 'minutos solicitados', min: 5, max: 1440
+      });
+      if (!vMin.ok) { showToast(vMin.error, 'error'); return; }
+      const min = vMin.valor;
 
       const eq     = getEquiposCache().find(e => String(e.id) === String(miEquipoId)) || { tarifa_por_hora: 1.5 };
-      const tarifa = eq.tarifa_por_hora || 1.5;
+      const tarifa = Number(eq.tarifa_por_hora) > 0 ? Number(eq.tarifa_por_hora) : 1.5;
       const monto  = parseFloat(((min / 60) * tarifa).toFixed(2));
 
       try {
@@ -253,9 +256,10 @@ async function cargarSnacksCliente() {
         <footer class="card-actions">
           <button type="button" class="primary btn-agregar-carrito"
             data-id="${snack.id}"
-            data-origen="${snack._origen || 'snacks'}"
+            data-origen="${escapeAttr(snack._origen || 'snacks')}"
             data-nombre="${escapeAttr(snack.nombre)}"
             data-precio="${snack.precio}"
+            data-stock="${parseInt(snack.stock, 10) || 0}"
             ${snack.stock <= 0 ? 'disabled' : ''}>
             ${snack.stock <= 0 ? 'Agotado' : '+ Agregar'}
           </button>
@@ -269,7 +273,8 @@ async function cargarSnacksCliente() {
         id:     btn.dataset.id,
         origen: btn.dataset.origen,
         nombre: btn.dataset.nombre,
-        precio: parseFloat(btn.dataset.precio)
+        precio: parseFloat(btn.dataset.precio),
+        stock:  parseInt(btn.dataset.stock, 10)
       });
     });
   });
@@ -280,6 +285,11 @@ async function cargarSnacksCliente() {
 // =========================================================================
 function agregarAlCarrito(producto) {
   const existente = carrito.find(i => String(i.id) === String(producto.id) && i.origen === producto.origen);
+  const cantidadActual = existente ? existente.cantidad : 0;
+  if (Number.isInteger(producto.stock) && cantidadActual + 1 > producto.stock) {
+    showToast(`Stock insuficiente para "${producto.nombre}". Disponible: ${producto.stock}.`, 'error');
+    return;
+  }
   if (existente) {
     existente.cantidad += 1;
   } else {
@@ -322,8 +332,15 @@ function renderizarCarrito() {
 }
 
 function cambiarCantidad(idx, delta) {
-  carrito[idx].cantidad += delta;
-  if (carrito[idx].cantidad <= 0) carrito.splice(idx, 1);
+  const item = carrito[idx];
+  if (!item || !Number.isInteger(delta)) return;
+  const nueva = item.cantidad + delta;
+  if (delta > 0 && Number.isInteger(item.stock) && nueva > item.stock) {
+    showToast(`Stock insuficiente. Disponible: ${item.stock}.`, 'error');
+    return;
+  }
+  item.cantidad = nueva;
+  if (item.cantidad <= 0) carrito.splice(idx, 1);
   renderizarCarrito();
 }
 
@@ -338,10 +355,23 @@ function setupCarrito(usuario) {
 
   btnPedir.addEventListener('click', async () => {
     if (carrito.length === 0) { showToast('El carrito está vacío.', 'error'); return; }
+
+    const vCliente = Validacion.texto(usuario.nombre_completo, { campo: 'nombre del cliente', max: 120 });
+    if (!vCliente.ok) { showToast(vCliente.error, 'error'); return; }
+
     const eq       = getEquiposCache().find(e => String(e.id) === String(miEquipoId));
     const eqNombre = eq ? eq.nombre_equipo : 'Mostrador';
     const total    = carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
-    const items    = carrito.map(i => ({ id: i.id, origen: i.origen, nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }));
+
+    const items = [];
+    for (let i = 0; i < carrito.length; i++) {
+      const linea = carrito[i];
+      const vId   = Validacion.entero(linea.id, { campo: `identificador del producto #${i + 1}`, min: 1 });
+      const vCant = Validacion.entero(linea.cantidad, { campo: `cantidad de "${linea.nombre}"`, min: 1, max: 10000 });
+      if (!vId.ok)   { showToast(vId.error, 'error'); return; }
+      if (!vCant.ok) { showToast(vCant.error, 'error'); return; }
+      items.push({ id: vId.valor, origen: linea.origen, nombre: linea.nombre, precio: linea.precio, cantidad: vCant.valor });
+    }
 
     try {
       await apiFetch('/pedidos', {
@@ -364,10 +394,20 @@ function setupCarrito(usuario) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

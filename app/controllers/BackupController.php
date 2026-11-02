@@ -18,14 +18,18 @@ class BackupController extends Controller
     // ------------------------------------------------------------------
     public function stats(): void
     {
-        $this->requireAuth();
-        $count = fn (string $t) => (int) $this->db->query("SELECT COUNT(*) FROM {$t}")->fetchColumn();
-        $this->ok([
-            'usuarios'  => $count('usuarios'),
-            'equipos'   => $count('equipos'),
-            'productos' => $count('productos'),
-            'sesiones'  => $count('sesiones_uso'),
-        ]);
+        try {
+            $this->requireAuth();
+            $count = fn (string $t) => (int) $this->db->query("SELECT COUNT(*) FROM {$t}")->fetchColumn();
+            $this->ok([
+                'usuarios'  => $count('usuarios'),
+                'equipos'   => $count('equipos'),
+                'productos' => $count('productos'),
+                'sesiones'  => $count('sesiones_uso'),
+            ]);
+        } catch (Throwable $e) {
+            $this->serverError($e, 'No se pudieron obtener las estadísticas.');
+        }
     }
 
     // ------------------------------------------------------------------
@@ -33,18 +37,22 @@ class BackupController extends Controller
     // ------------------------------------------------------------------
     public function export(): void
     {
-        $this->requireAdmin();
-        $this->json([
-            'version'   => '4.0',
-            'exportado' => date('c'),
-            'usuarios'  => $this->db->query('SELECT id, nombre_completo, email, password, rol, avatar_url, fecha_creacion FROM usuarios')->fetchAll(),
-            'equipos'   => $this->db->query('SELECT * FROM equipos')->fetchAll(),
-            'productos' => $this->db->query('SELECT * FROM productos')->fetchAll(),
-            'sesiones_uso' => $this->db->query('SELECT * FROM sesiones_uso')->fetchAll(),
-            'solicitudes_tiempo' => $this->db->query('SELECT * FROM solicitudes_tiempo')->fetchAll(),
-            'pedidos_snacks' => $this->db->query('SELECT * FROM pedidos_snacks')->fetchAll(),
-            'config'    => $this->db->query('SELECT * FROM configuracion WHERE id = 1')->fetch() ?: null,
-        ], 200);
+        try {
+            $this->requireAdmin();
+            $this->json([
+                'version'   => '4.0',
+                'exportado' => date('c'),
+                'usuarios'  => $this->db->query('SELECT id, nombre_completo, email, password, rol, avatar_url, fecha_creacion FROM usuarios')->fetchAll(),
+                'equipos'   => $this->db->query('SELECT * FROM equipos')->fetchAll(),
+                'productos' => $this->db->query('SELECT * FROM productos')->fetchAll(),
+                'sesiones_uso' => $this->db->query('SELECT * FROM sesiones_uso')->fetchAll(),
+                'solicitudes_tiempo' => $this->db->query('SELECT * FROM solicitudes_tiempo')->fetchAll(),
+                'pedidos_snacks' => $this->db->query('SELECT * FROM pedidos_snacks')->fetchAll(),
+                'config'    => $this->db->query('SELECT * FROM configuracion WHERE id = 1')->fetch() ?: null,
+            ], 200);
+        } catch (Throwable $e) {
+            $this->serverError($e, 'No se pudo generar la copia de seguridad.');
+        }
     }
 
     // ------------------------------------------------------------------
@@ -89,7 +97,7 @@ class BackupController extends Controller
                 $this->db->rollBack();
             }
             $this->db->exec('SET FOREIGN_KEY_CHECKS = 1');
-            $this->fail('Error al importar: ' . $e->getMessage(), 500);
+            $this->serverError($e, 'No se pudo restaurar la copia de seguridad.');
         }
 
         $this->ok(null, 'Copia de seguridad restaurada correctamente.');
@@ -147,7 +155,7 @@ class BackupController extends Controller
             $this->ok(null, 'Base de datos restablecida.');
         } catch (Throwable $e) {
             $this->db->exec('SET FOREIGN_KEY_CHECKS = 1');
-            $this->fail('Error al restablecer: ' . $e->getMessage(), 500);
+            $this->serverError($e, 'No se pudo restablecer la base de datos.');
         }
     }
 

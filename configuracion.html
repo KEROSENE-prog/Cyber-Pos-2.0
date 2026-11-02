@@ -221,7 +221,7 @@
               </p>
               <p class="form-group">
                 <label for="configNombreCyber">Nombre del Negocio</label>
-                <input type="text" id="configNombreCyber" placeholder="CyberPOS Laneros Gamer">
+                <input type="text" id="configNombreCyber" maxlength="150" placeholder="CyberPOS Laneros Gamer">
               </p>
             </fieldset>
             <footer class="modal-actions" style="margin-top:16px">
@@ -295,6 +295,7 @@
   if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
 </script>
 <script src="js/api.js"></script>
+<script src="js/validaciones.js"></script>
 <script src="js/configuracion.js?v=2"></script>
 </body>
 </html>

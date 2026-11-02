@@ -228,9 +228,17 @@ function setupModalesEquipos() {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!currentEquipoAccion) return;
-      const minutos  = parseInt(modal.querySelector('#inputMinutos')?.value, 10);
-      const cliente  = modal.querySelector('#inputClienteNombre')?.value.trim() || 'Cliente';
-      if (!minutos || minutos <= 0) { showToast('Ingresa los minutos.', 'error'); return; }
+
+      const vMinutos = Validacion.entero(modal.querySelector('#inputMinutos')?.value, {
+        campo: 'minutos de alquiler', min: 1, max: 1440
+      });
+      if (!vMinutos.ok) { showToast(vMinutos.error, 'error'); return; }
+
+      const vCliente = Validacion.texto(modal.querySelector('#inputClienteNombre')?.value, {
+        campo: 'nombre del cliente', max: 120, requerido: false
+      });
+      if (!vCliente.ok) { showToast(vCliente.error, 'error'); return; }
+      const cliente = vCliente.valor || 'Cliente';
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -241,7 +249,7 @@ function setupModalesEquipos() {
         const accion = eq && (eq.estado === 'activa' || eq.estado === 'finalizada') ? 'agregar' : 'iniciar';
         const res = await apiFetch(`/equipos/${currentEquipoAccion.id}/tiempo`, {
           method: 'POST',
-          body: JSON.stringify({ minutos, accion, cliente })
+          body: JSON.stringify({ minutos: vMinutos.valor, accion, cliente })
         });
         cerrar();
         showToast(res.message || 'Tiempo procesado.', 'success');
@@ -273,16 +281,27 @@ function setupModalAgregarEquipo() {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nombre = modal.querySelector('#nuevoEquipoNombre')?.value.trim() || '';
-      const tipo   = modal.querySelector('#nuevoEquipoTipo')?.value || 'pc';
-      const tarifa = parseFloat(modal.querySelector('#nuevoEquipoTarifa')?.value) || (tipo === 'consola' ? 2.00 : 1.50);
-      if (!nombre) { showToast('El nombre del equipo es obligatorio.', 'error'); return; }
+      const tipo = modal.querySelector('#nuevoEquipoTipo')?.value === 'consola' ? 'consola' : 'pc';
+
+      const vNombre = Validacion.texto(modal.querySelector('#nuevoEquipoNombre')?.value, {
+        campo: 'nombre del equipo', max: 100
+      });
+      if (!vNombre.ok) { showToast(vNombre.error, 'error'); return; }
+
+      const tarifaPorDefecto = tipo === 'consola' ? 2.00 : 1.50;
+      const tarifaRaw = modal.querySelector('#nuevoEquipoTarifa')?.value;
+      let tarifa = tarifaPorDefecto;
+      if (String(tarifaRaw ?? '').trim() !== '') {
+        const vTarifa = Validacion.decimal(tarifaRaw, { campo: 'tarifa por hora', min: 0 });
+        if (!vTarifa.ok) { showToast(vTarifa.error, 'error'); return; }
+        tarifa = vTarifa.valor;
+      }
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
 
       try {
-        const res = await apiFetch('/equipos', { method: 'POST', body: JSON.stringify({ nombre_equipo: nombre, tipo, tarifa_por_hora: tarifa }) });
+        const res = await apiFetch('/equipos', { method: 'POST', body: JSON.stringify({ nombre_equipo: vNombre.valor, tipo, tarifa_por_hora: tarifa }) });
         modal.close();
         form.reset();
         showToast(res.message || 'Equipo agregado.', 'success');
@@ -396,10 +415,20 @@ async function cancelarPedido(id) {
 // Helpers
 // =========================================================================
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

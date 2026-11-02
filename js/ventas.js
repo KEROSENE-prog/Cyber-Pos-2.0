@@ -79,33 +79,64 @@ async function cargarProductosVenta(busqueda = '') {
           </p>
         </section>
         <footer class="card-actions">
-          <button type="button" class="primary"
-            onclick="agregarAVentas(${prod.id}, '${prod._origen || 'snacks'}', '${escapeAttr(prod.nombre)}', ${prod.precio})"
+          <button type="button" class="primary btn-agregar-venta"
+            data-id="${prod.id}"
+            data-origen="${escapeAttr(prod._origen || 'snacks')}"
+            data-nombre="${escapeAttr(prod.nombre)}"
+            data-precio="${precio}"
+            data-stock="${prod.stock}"
             ${agotado ? 'disabled' : ''}>
             ${agotado ? 'Agotado' : '+ Agregar'}
           </button>
         </footer>
       </article>`;
   }).join('');
+
+  grid.querySelectorAll('.btn-agregar-venta').forEach(btn => {
+    btn.addEventListener('click', () => {
+      agregarAVentas(btn.dataset.id, btn.dataset.origen, btn.dataset.nombre, btn.dataset.precio, btn.dataset.stock);
+    });
+  });
 }
 
 // =========================================================================
 // CARRITO DE VENTAS
 // =========================================================================
-function agregarAVentas(id, origen, nombre, precio) {
+function agregarAVentas(id, origen, nombre, precio, stock) {
+  const stockDisponible = parseInt(stock, 10);
   const existente = carritoVentas.find(i => String(i.id) === String(id) && i.origen === origen);
+  const cantidadActual = existente ? existente.cantidad : 0;
+  if (Number.isInteger(stockDisponible) && cantidadActual + 1 > stockDisponible) {
+    showToast(`Stock insuficiente para "${nombre}". Disponible: ${stockDisponible}.`, 'error');
+    return;
+  }
   if (existente) {
     existente.cantidad += 1;
   } else {
-    carritoVentas.push({ id, origen, nombre, precio: parseFloat(precio), cantidad: 1 });
+    carritoVentas.push({
+      id,
+      origen,
+      nombre,
+      precio: parseFloat(precio),
+      cantidad: 1,
+      stock: Number.isInteger(stockDisponible) ? stockDisponible : null
+    });
   }
   renderizarCarritoVenta();
   showToast(`"${nombre}" agregado`, 'info', 1200);
 }
 
 function cambiarCantidadVenta(idx, delta) {
-  carritoVentas[idx].cantidad += delta;
-  if (carritoVentas[idx].cantidad <= 0) carritoVentas.splice(idx, 1);
+  const item = carritoVentas[idx];
+  if (!item) return;
+  if (!Number.isInteger(delta)) return;
+  const nueva = item.cantidad + delta;
+  if (delta > 0 && item.stock !== null && nueva > item.stock) {
+    showToast(`Stock insuficiente. Disponible: ${item.stock}.`, 'error');
+    return;
+  }
+  item.cantidad = nueva;
+  if (item.cantidad <= 0) carritoVentas.splice(idx, 1);
   renderizarCarritoVenta();
 }
 
@@ -165,7 +196,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btnFinalizarVenta');
     if (btn) btn.disabled = true;
 
-    const items = carritoVentas.map(i => ({ id: parseInt(i.id, 10), cantidad: i.cantidad }));
+    const items = [];
+    for (let i = 0; i < carritoVentas.length; i++) {
+      const linea   = carritoVentas[i];
+      const vId     = Validacion.entero(linea.id, { campo: `identificador del producto #${i + 1}`, min: 1 });
+      const vCant   = Validacion.entero(linea.cantidad, { campo: `cantidad de "${linea.nombre}"`, min: 1, max: 10000 });
+      if (!vId.ok)   { showToast(vId.error, 'error');   if (btn) btn.disabled = false; return; }
+      if (!vCant.ok) { showToast(vCant.error, 'error'); if (btn) btn.disabled = false; return; }
+      items.push({ id: vId.valor, cantidad: vCant.valor });
+    }
+
     try {
       const res = await apiFetch('/ventas', { method: 'POST', body: JSON.stringify({ items }) });
       const total = parseFloat(res.total || 0);
@@ -216,10 +256,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

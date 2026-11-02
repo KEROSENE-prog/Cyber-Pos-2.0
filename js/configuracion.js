@@ -4,8 +4,23 @@
  */
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function formatDuracionSesion(segundos) {
@@ -288,7 +303,7 @@ function setupFormTema() {
       <button type="button" class="color-preset-btn"
         onclick="seleccionarColor('${c.valor}')"
         style="width:36px;height:36px;border-radius:50%;background:${c.valor};border:3px solid transparent;cursor:pointer;transition:all .2s"
-        title="${c.nombre}"></button>
+        title="${escapeAttr(c.nombre)}"></button>
     `).join('');
   }
 
@@ -305,8 +320,16 @@ function setupFormTema() {
     const color = colorPicker?.value || '#35c029';
     const nombreCyber = document.getElementById('configNombreCyber')?.value.trim();
 
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(color)) {
+      showToast('El color debe tener formato hexadecimal, por ejemplo #35c029.', 'error');
+      return;
+    }
+
+    const vNombre = Validacion.texto(nombreCyber, { campo: 'nombre del negocio', max: 150 });
+    if (!vNombre.ok) { showToast(vNombre.error, 'error'); return; }
+
     try {
-      const res = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ theme_color: color, nombre_cyber: nombreCyber }) });
+      const res = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ theme_color: color, nombre_cyber: vNombre.valor }) });
       refrescarConfigGlobal(res.data);
       document.documentElement.style.setProperty('--brand-primary', color);
       showToast('Tema aplicado y guardado.', 'success');
@@ -345,10 +368,11 @@ function setupFormTasa() {
       if (!res.ok) throw new Error('No se pudo consultar la API BCV.');
       const d = await res.json();
       const tasa = d.promedio || d.precio;
-      if (!tasa) throw new Error('La API no devolvió una tasa válida.');
-      const upd = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: tasa, tasa_manual: false }) });
+      const vTasa = Validacion.decimal(tasa, { campo: 'tasa BCV devuelta por la API', min: 0 });
+      if (!vTasa.ok) throw new Error(vTasa.error);
+      const upd = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: vTasa.valor, tasa_manual: false }) });
       refrescarConfigGlobal(upd.data);
-      showToast(`Tasa actualizada: Bs. ${parseFloat(tasa).toFixed(2)}`, 'success');
+      showToast(`Tasa actualizada: Bs. ${vTasa.valor.toFixed(2)}`, 'success');
       cargarConfiguracion();
     } catch (err) {
       showToast(err.message || 'Error al actualizar la tasa.', 'error');
@@ -361,9 +385,10 @@ function setupFormTasa() {
   if (!form) return;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const tasa   = parseFloat(inputTasa?.value);
+    const vTasa  = Validacion.decimal(inputTasa?.value, { campo: 'tasa Bs/USD', min: 0 });
+    if (!vTasa.ok) { showToast(vTasa.error, 'error'); return; }
+    const tasa   = vTasa.valor;
     const manual = !!checkManual?.checked;
-    if (!tasa || tasa <= 0) { showToast('Ingresa una tasa válida.', 'error'); return; }
 
     try {
       const res = await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ tasa_bcv: tasa, tasa_manual: manual }) });

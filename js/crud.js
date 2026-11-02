@@ -254,10 +254,21 @@ function setupModales() {
   if (snackForm) {
     snackForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nombre     = document.getElementById('snackName').value.trim();
-      const precio     = parseFloat(document.getElementById('snackPrice').value);
-      const stock      = parseInt(document.getElementById('snackStock').value, 10);
-      const url_imagen = document.getElementById('snackImage').value.trim();
+
+      const vNombre = Validacion.texto(document.getElementById('snackName').value, {
+        campo: 'nombre del producto', max: 150
+      });
+      if (!vNombre.ok) { showToast(vNombre.error, 'error'); return; }
+
+      const vPrecio = Validacion.decimal(document.getElementById('snackPrice').value, {
+        campo: 'precio', min: 0
+      });
+      if (!vPrecio.ok) { showToast(vPrecio.error, 'error'); return; }
+
+      const vStock = Validacion.entero(document.getElementById('snackStock').value, {
+        campo: 'stock', min: 0, max: 1000000
+      });
+      if (!vStock.ok) { showToast(vStock.error, 'error'); return; }
 
       let categoria;
       if (currentType === 'personalizados') {
@@ -266,12 +277,24 @@ function setupModales() {
         categoria = catSelect?.value || 'bebidas';
       }
 
-      if (!nombre || isNaN(precio) || isNaN(stock)) {
-        showToast('Completa todos los campos requeridos.', 'error');
+      const vCategoria = Validacion.texto(categoria, {
+        campo: 'categoria', max: 60
+      });
+      if (!vCategoria.ok) { showToast(vCategoria.error, 'error'); return; }
+
+      const url_imagen = document.getElementById('snackImage').value.trim();
+      if (url_imagen.length > 2000) {
+        showToast('La URL de la imagen no puede exceder 2000 caracteres.', 'error');
         return;
       }
 
-      const payload    = { nombre, precio, stock, url_imagen, categoria };
+      const payload    = {
+        nombre: vNombre.valor,
+        precio: vPrecio.valor,
+        stock: vStock.valor,
+        url_imagen,
+        categoria: vCategoria.valor
+      };
       const submitBtn  = snackForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       submitBtn.textContent = 'Guardando...';
@@ -333,10 +356,20 @@ function setupModales() {
 
 // Helpers
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr(str) {
-  if (!str) return '';
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

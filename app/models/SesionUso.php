@@ -39,6 +39,11 @@ class SesionUso extends Model
 
     public function registrarVenta(string $cliente, float $monto, array $items = []): int
     {
+        $cliente = Validador::texto($cliente);
+        if ($cliente === '') {
+            $cliente = 'Mostrador';
+        }
+        $cliente = mb_substr($cliente, 0, 120, 'UTF-8');
         $detalle = $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null;
         $st = $this->db->prepare(
             'INSERT INTO sesiones_uso (equipo_id, equipo_nombre, cliente, segundos_alquilados, monto_cobrado, tipo_registro, detalle, fecha_registro)
@@ -51,14 +56,14 @@ class SesionUso extends Model
     public function historialVentas(int $limit = 200): array
     {
         $limit = max(1, min(500, $limit));
-        $rows = $this->db
-            ->query(
-                'SELECT s.*, e.tipo AS equipo_tipo
-                 FROM sesiones_uso s
-                 LEFT JOIN equipos e ON e.id = s.equipo_id
-                 ORDER BY s.id DESC LIMIT ' . $limit
-            )
-            ->fetchAll();
-        return array_map([$this, 'cast'], $rows);
+        $st = $this->db->prepare(
+            'SELECT s.*, e.tipo AS equipo_tipo
+             FROM sesiones_uso s
+             LEFT JOIN equipos e ON e.id = s.equipo_id
+             ORDER BY s.id DESC LIMIT ?'
+        );
+        $st->bindValue(1, $limit, PDO::PARAM_INT);
+        $st->execute();
+        return array_map([$this, 'cast'], $st->fetchAll());
     }
 }

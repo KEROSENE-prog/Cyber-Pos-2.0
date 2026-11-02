@@ -16,8 +16,21 @@ class Producto extends Model
         return $p;
     }
 
+    private function sanitizarUrlImagen(string $url): string
+    {
+        $url = trim(strip_tags($url));
+        if ($url === '' || mb_strlen($url, 'UTF-8') > 2000) {
+            return self::IMAGEN_DEFAULT;
+        }
+        if (!preg_match('/^(https?:\/\/|\/|\.\/|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
+            return self::IMAGEN_DEFAULT;
+        }
+        return $url;
+    }
+
     public function getAll(string $categoria = 'all', string $busqueda = '', string $origen = 'snacks'): array
     {
+        $origen = ($origen === 'personalizados') ? 'personalizados' : 'snacks';
         $sql    = 'SELECT * FROM productos WHERE origen = ?';
         $params = [$origen];
         if ($categoria !== '' && strtolower($categoria) !== 'all') {
@@ -63,23 +76,35 @@ class Producto extends Model
 
     public function create(array $data, string $origen): array
     {
-        $nombre = trim($data['nombre'] ?? '');
-        $precio = isset($data['precio']) ? (float) $data['precio'] : 0;
-        $stock  = isset($data['stock']) ? (int) $data['stock'] : 0;
-        if ($nombre === '') {
-            return ['success' => false, 'error' => 'El nombre es obligatorio.'];
+        $origen = ($origen === 'personalizados') ? 'personalizados' : 'snacks';
+        $error = Validador::errorTexto($data['nombre'] ?? '', 150, 'nombre del producto');
+        if ($error !== null) {
+            return ['success' => false, 'error' => $error];
         }
-        if ($precio <= 0) {
-            return ['success' => false, 'error' => 'El precio debe ser mayor a 0.'];
+        $nombre = Validador::texto($data['nombre'] ?? '');
+
+        $error = Validador::errorDecimalPositivo($data['precio'] ?? null, 'precio del producto');
+        if ($error !== null) {
+            return ['success' => false, 'error' => 'Precio inválido. ' . $error];
         }
-        if ($stock < 0) {
-            return ['success' => false, 'error' => 'El stock no puede ser negativo.'];
+        $precio = (float) $data['precio'];
+
+        $error = Validador::errorEnteroNoNegativo($data['stock'] ?? null, 'stock', 1000000);
+        if ($error !== null) {
+            return ['success' => false, 'error' => 'Stock inválido. ' . $error];
         }
-        $categoria = trim($data['categoria'] ?? '');
+        $stock = (int) $data['stock'];
+
+        $categoria = Validador::texto($data['categoria'] ?? '');
         if ($categoria === '') {
             $categoria = $origen === 'snacks' ? 'bebidas' : 'Otro';
         }
-        $imagen = trim($data['url_imagen'] ?? '') !== '' ? trim($data['url_imagen']) : self::IMAGEN_DEFAULT;
+        $error = Validador::errorTexto($categoria, 60, 'categoria');
+        if ($error !== null) {
+            return ['success' => false, 'error' => $error];
+        }
+
+        $imagen = $this->sanitizarUrlImagen((string) ($data['url_imagen'] ?? ''));
 
         $st = $this->db->prepare(
             'INSERT INTO productos (nombre, precio, stock, url_imagen, categoria, origen, fecha_creacion)
@@ -95,24 +120,46 @@ class Producto extends Model
         if (!$actual) {
             return ['success' => false, 'error' => 'Producto no encontrado.'];
         }
-        $nombre = array_key_exists('nombre', $data) ? trim((string) $data['nombre']) : $actual['nombre'];
-        if ($nombre === '') {
-            return ['success' => false, 'error' => 'El nombre es obligatorio.'];
+        $nombre = $actual['nombre'];
+        if (array_key_exists('nombre', $data)) {
+            $error = Validador::errorTexto($data['nombre'], 150, 'nombre del producto');
+            if ($error !== null) {
+                return ['success' => false, 'error' => $error];
+            }
+            $nombre = Validador::texto($data['nombre']);
         }
-        $precio = array_key_exists('precio', $data) ? (float) $data['precio'] : $actual['precio'];
-        if ($precio <= 0) {
-            return ['success' => false, 'error' => 'El precio debe ser mayor a 0.'];
+
+        $precio = $actual['precio'];
+        if (array_key_exists('precio', $data)) {
+            $error = Validador::errorDecimalPositivo($data['precio'], 'precio del producto');
+            if ($error !== null) {
+                return ['success' => false, 'error' => 'Precio inválido. ' . $error];
+            }
+            $precio = (float) $data['precio'];
         }
-        $stock = array_key_exists('stock', $data) ? (int) $data['stock'] : $actual['stock'];
-        if ($stock < 0) {
-            return ['success' => false, 'error' => 'El stock no puede ser negativo.'];
+
+        $stock = $actual['stock'];
+        if (array_key_exists('stock', $data)) {
+            $error = Validador::errorEnteroNoNegativo($data['stock'], 'stock', 1000000);
+            if ($error !== null) {
+                return ['success' => false, 'error' => 'Stock inválido. ' . $error];
+            }
+            $stock = (int) $data['stock'];
         }
-        $categoria = array_key_exists('categoria', $data) && trim((string) $data['categoria']) !== ''
-            ? trim((string) $data['categoria'])
-            : $actual['categoria'];
-        $imagen = array_key_exists('url_imagen', $data) && trim((string) $data['url_imagen']) !== ''
-            ? trim((string) $data['url_imagen'])
-            : $actual['url_imagen'];
+
+        $categoria = $actual['categoria'];
+        if (array_key_exists('categoria', $data) && Validador::texto($data['categoria']) !== '') {
+            $error = Validador::errorTexto($data['categoria'], 60, 'categoria');
+            if ($error !== null) {
+                return ['success' => false, 'error' => $error];
+            }
+            $categoria = Validador::texto($data['categoria']);
+        }
+
+        $imagen = $actual['url_imagen'];
+        if (array_key_exists('url_imagen', $data)) {
+            $imagen = $this->sanitizarUrlImagen((string) $data['url_imagen']);
+        }
 
         $st = $this->db->prepare(
             'UPDATE productos SET nombre = ?, precio = ?, stock = ?, url_imagen = ?, categoria = ? WHERE id = ?'
@@ -130,14 +177,20 @@ class Producto extends Model
         return ['success' => true, 'message' => 'Producto eliminado.'];
     }
 
-    /** Reduce stock. Devuelve false si no hay suficiente. */
+    /**
+     * Reduce stock de forma atómica y condicional.
+     * Devuelve false si la cantidad es inválida o si el stock real ya no alcanza
+     * (por ejemplo, por una venta concurrente). No descuenta nada en ese caso.
+     */
     public function reducirStock(int $id, int $cantidad): bool
     {
-        $p = $this->getById($id);
-        if (!$p || $p['stock'] < $cantidad) {
+        if ($cantidad <= 0) {
             return false;
         }
-        $this->db->prepare('UPDATE productos SET stock = stock - ? WHERE id = ?')->execute([$cantidad, $id]);
-        return true;
+        $st = $this->db->prepare(
+            'UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?'
+        );
+        $st->execute([$cantidad, $id, $cantidad]);
+        return $st->rowCount() === 1;
     }
 }

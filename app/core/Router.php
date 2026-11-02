@@ -15,6 +15,30 @@ class Router
 
     public function dispatch(string $method, string $path): void
     {
+        try {
+            $this->dispatchInterno($method, $path);
+        } catch (Throwable $e) {
+            error_log(sprintf(
+                '[CyberPOS] Error no controlado en %s %s: %s en %s:%d',
+                $method,
+                $path,
+                $e->getMessage(),
+                $e->getFile(),
+                $e->getLine()
+            ));
+            if (!headers_sent()) {
+                http_response_code(500);
+                header('Content-Type: application/json; charset=utf-8');
+            }
+            echo json_encode([
+                'success' => false,
+                'error'   => 'Error interno del servidor. Intenta de nuevo.',
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
+    }
+
+    private function dispatchInterno(string $method, string $path): void
+    {
         $path = '/' . trim($path, '/');
         foreach ($this->routes as $route) {
             [$routeMethod, $pattern, $handler] = $route;

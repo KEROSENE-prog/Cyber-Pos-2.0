@@ -125,7 +125,7 @@
       <fieldset class="form-fields">
         <p class="form-group">
           <label for="snackName">Nombre del Producto</label>
-          <input type="text" id="snackName" placeholder="Ej. Coca Cola 500ml" required>
+          <input type="text" id="snackName" maxlength="150" placeholder="Ej. Coca Cola 500ml" required>
         </p>
         <p class="form-group">
           <label for="snackPrice">Precio (USD $)</label>
@@ -133,7 +133,7 @@
         </p>
         <p class="form-group">
           <label for="snackStock">Stock</label>
-          <input type="number" id="snackStock" min="0" placeholder="0" required>
+          <input type="number" id="snackStock" min="0" max="1000000" step="1" placeholder="0" required>
         </p>
         <p class="form-group">
           <label for="snackImage">URL de Imagen</label>
@@ -147,7 +147,7 @@
             <option value="comida">Comida</option>
           </select>
           <!-- Categoría libre para personalizados -->
-          <input type="text" id="snackCategoryCustom" placeholder="Ej. Electrónicos, Accesorios, Servicios..." style="display:none;padding:10px;border-radius:6px;background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);width:100%;margin-top:4px">
+          <input type="text" id="snackCategoryCustom" maxlength="60" placeholder="Ej. Electrónicos, Accesorios, Servicios..." style="display:none;padding:10px;border-radius:6px;background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);width:100%;margin-top:4px">
         </p>
       </fieldset>
       <footer class="modal-actions">
@@ -183,6 +183,7 @@
   if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
 </script>
 <script src="js/api.js"></script>
+<script src="js/validaciones.js"></script>
 <script src="js/crud.js"></script>
 </body>
 </html>

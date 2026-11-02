@@ -272,7 +272,7 @@
         </section>
         <p class="form-group">
           <label for="minutosSolicitud">Minutos Personalizados</label>
-          <input type="number" id="minutosSolicitud" min="5" placeholder="Ej. 30" required>
+          <input type="number" id="minutosSolicitud" min="5" max="1440" step="1" placeholder="Ej. 30" required>
         </p>
         <p style="font-size:.9rem;color:var(--text-muted)">Monto estimado: <strong id="montoEstimadoTexto" style="color:var(--brand-primary)">$0.00</strong></p>
       </fieldset>
@@ -290,6 +290,7 @@
   if (menuBtn && sidebar) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
 </script>
 <script src="js/api.js"></script>
+<script src="js/validaciones.js"></script>
 <script src="js/cliente.js"></script>
 </body>
 </html>

@@ -26,6 +26,9 @@ abstract class Controller
             return $cached;
         }
         $decoded = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->fail('JSON malformado en la petición: ' . json_last_error_msg(), 400);
+        }
         $cached = is_array($decoded) ? $decoded : [];
         return $cached;
     }
@@ -38,10 +41,37 @@ abstract class Controller
 
     protected function json($data, int $code = 200): void
     {
-        http_response_code($code);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        if (!headers_sent()) {
+            http_response_code($code);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $payload = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($payload === false) {
+            error_log('[CyberPOS] No se pudo codificar la respuesta JSON: ' . json_last_error_msg());
+            http_response_code(500);
+            $payload = json_encode([
+                'success' => false,
+                'error'   => 'No se pudo generar la respuesta. Intenta de nuevo.',
+            ], JSON_UNESCAPED_UNICODE);
+        }
+        echo $payload;
         exit;
+    }
+
+    /**
+     * Registra el detalle real del fallo en el log del servidor y responde
+     * un JSON controlado, sin exponer trazas ni mensajes internos.
+     */
+    protected function serverError(Throwable $e, string $contexto): void
+    {
+        error_log(sprintf(
+            '[CyberPOS] %s: %s en %s:%d',
+            $contexto,
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine()
+        ));
+        $this->fail($contexto . ' Intenta de nuevo.', 500);
     }
 
     protected function ok($data = null, ?string $message = null): void

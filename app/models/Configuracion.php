@@ -15,6 +15,18 @@ class Configuracion extends Model
         return $c;
     }
 
+    private function sanitizarAvatar(string $url): string
+    {
+        $url = trim(strip_tags($url));
+        if ($url === '' || mb_strlen($url, 'UTF-8') > 2000) {
+            return '';
+        }
+        if (!preg_match('/^(https?:\/\/|\/|\.\/|data:image\/[a-zA-Z0-9\+\-\.]+;base64,|[a-zA-Z0-9_\-\.\/]+\.(jpg|jpeg|png|gif|webp|svg))/i', $url)) {
+            return '';
+        }
+        return $url;
+    }
+
     public function get(): array
     {
         $row = $this->db->query('SELECT * FROM configuracion WHERE id = 1')->fetch();
@@ -34,38 +46,57 @@ class Configuracion extends Model
         $sets   = [];
         $params = [];
 
-        if (isset($data['tasa_bcv'])) {
-            $tasa = (float) $data['tasa_bcv'];
-            if ($tasa <= 0) {
-                return ['success' => false, 'error' => 'La tasa debe ser mayor a 0.'];
+        if (array_key_exists('tasa_bcv', $data)) {
+            $error = Validador::errorDecimalPositivo($data['tasa_bcv'], 'tasa BCV');
+            if ($error !== null) {
+                return ['success' => false, 'error' => 'Tasa BCV inválida. ' . $error];
             }
             $sets[] = 'tasa_bcv = ?';
-            $params[] = $tasa;
+            $params[] = round((float) $data['tasa_bcv'], 2);
             $sets[] = 'ultima_actualizacion_tasa = NOW()';
         }
         if (array_key_exists('tasa_manual', $data)) {
             $sets[] = 'tasa_manual = ?';
             $params[] = $data['tasa_manual'] ? 1 : 0;
         }
-        if (isset($data['nombre_cyber'])) {
+        if (array_key_exists('nombre_cyber', $data)) {
+            $error = Validador::errorTexto($data['nombre_cyber'], 150, 'nombre del negocio');
+            if ($error !== null) {
+                return ['success' => false, 'error' => $error];
+            }
             $sets[] = 'nombre_cyber = ?';
-            $params[] = (string) $data['nombre_cyber'];
+            $params[] = Validador::texto($data['nombre_cyber']);
         }
         if (array_key_exists('theme_color', $data)) {
+            $color = Validador::texto($data['theme_color']);
+            if ($color !== '' && !preg_match('/^#[0-9a-fA-F]{3,8}$/', $color)) {
+                return ['success' => false, 'error' => 'El color debe tener formato hexadecimal, por ejemplo #35c029.'];
+            }
+            if (mb_strlen($color, 'UTF-8') > 20) {
+                return ['success' => false, 'error' => 'El color no puede exceder los 20 caracteres.'];
+            }
             $sets[] = 'theme_color = ?';
-            $params[] = (string) $data['theme_color'];
+            $params[] = $color;
         }
         if (array_key_exists('avatar_url', $data)) {
             $sets[] = 'avatar_url = ?';
-            $params[] = (string) $data['avatar_url'];
+            $params[] = $this->sanitizarAvatar((string) $data['avatar_url']);
         }
-        if (isset($data['precio_hora_pc'])) {
+        if (array_key_exists('precio_hora_pc', $data)) {
+            $error = Validador::errorDecimalPositivo($data['precio_hora_pc'], 'precio por hora de PC');
+            if ($error !== null) {
+                return ['success' => false, 'error' => $error];
+            }
             $sets[] = 'precio_hora_pc = ?';
-            $params[] = (float) $data['precio_hora_pc'];
+            $params[] = round((float) $data['precio_hora_pc'], 2);
         }
-        if (isset($data['precio_hora_consola'])) {
+        if (array_key_exists('precio_hora_consola', $data)) {
+            $error = Validador::errorDecimalPositivo($data['precio_hora_consola'], 'precio por hora de consola');
+            if ($error !== null) {
+                return ['success' => false, 'error' => $error];
+            }
             $sets[] = 'precio_hora_consola = ?';
-            $params[] = (float) $data['precio_hora_consola'];
+            $params[] = round((float) $data['precio_hora_consola'], 2);
         }
 
         if (!empty($sets)) {
