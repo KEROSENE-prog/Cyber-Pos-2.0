@@ -15,7 +15,7 @@ header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('America/Caracas');
 
 // -----------------------------------------------------------------------------
-// Autoload minimo (MVC)
+// Autoload minimo (MVC + Libs)
 // -----------------------------------------------------------------------------
 spl_autoload_register(function (string $class): void {
     $base = dirname(__DIR__) . '/app/';
@@ -23,6 +23,7 @@ spl_autoload_register(function (string $class): void {
         $base . 'core/' . $class . '.php',
         $base . 'models/' . $class . '.php',
         $base . 'controllers/' . $class . '.php',
+        $base . 'lib/' . $class . '.php',
     ];
     foreach ($rutas as $archivo) {
         if (is_file($archivo)) {

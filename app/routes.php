@@ -58,6 +58,11 @@ return [
     ['POST', '/pedidos/(\d+)/completar', 'PedidoController@completar'],
     ['POST', '/pedidos/(\d+)/cancelar',  'PedidoController@cancelar'],
 
+    // Reportes gerenciales con criterio
+    ['GET',  '/reportes/datos',        'ReporteController@datos'],
+    ['GET',  '/reportes/exportar',     'ReporteController@exportar'],
+    ['POST', '/reportes/enviar-email', 'ReporteController@enviarEmail'],
+
     // Configuracion
     ['GET',  '/config',              'ConfigController@show'],
     ['PUT',  '/config',              'ConfigController@update'],

@@ -133,5 +133,26 @@ INSERT INTO `solicitudes_tiempo` (`id`, `equipo_id`, `cliente_id`, `cliente_nomb
 (2, 7, 3, 'Cliente Gamer Demo', 60, 2.50, 'pendiente',  0, 0, DATE_SUB(NOW(), INTERVAL 10 MINUTE));
 
 -- Restauramos las verificaciones
+INSERT INTO `sesiones_uso` (`id`, `equipo_id`, `equipo_nombre`, `cliente`, `segundos_alquilados`, `monto_cobrado`, `tipo_registro`, `detalle`, `fecha_registro`) VALUES
+(6, 2, 'PC 02 - Ryzen 7 RTX 4070', 'María González', 5400, 2.25, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(7, 4, 'PC 04 - Ryzen 5 RTX 3060', 'Luis Perez', 3600, 1.50, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 4 HOUR)),
+(8, 5, 'PC 05 - Core i5 RTX 3060', 'Pedro Alvarez', 7200, 3.00, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(9, 8, 'PlayStation 5 - VIP 02', 'Ana Lopez', 3600, 2.50, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(10, 9, 'PlayStation 5 - Arena 03', 'Carlos Mendoza', 1800, 1.00, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 90 MINUTE)),
+(11, NULL, 'Venta Directa', 'Mostrador Público', 0, 3.20, 'venta_snack', '[{"id":3,"nombre":"Coca-Cola Sabor Original (500ml)","cantidad":1,"precio":1.75},{"id":5,"nombre":"Agua Mineral Minalba (600ml)","cantidad":1,"precio":1.00}]', DATE_SUB(NOW(), INTERVAL 80 MINUTE)),
+(12, NULL, 'Venta Directa', 'Mostrador Público', 0, 2.75, 'venta_snack', '[{"id":2,"nombre":"Red Bull Energy Drink (250ml)","cantidad":1,"precio":2.75}]', DATE_SUB(NOW(), INTERVAL 70 MINUTE)),
+(13, 6, 'PC 06 - Core i5 RTX 3060', 'Juan Ramirez', 5400, 2.70, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 60 MINUTE)),
+(14, 10, 'PlayStation 5 - Arena 04', 'Diego Torres', 3600, 2.00, 'alquiler_tiempo', NULL, DATE_SUB(NOW(), INTERVAL 50 MINUTE)),
+(15, NULL, 'Venta Directa', 'Mostrador Público', 0, 5.30, 'venta_snack', '[{"id":14,"nombre":"Servicio Impresión B/N (Hoja Carta)","cantidad":1,"precio":0.20},{"id":15,"nombre":"Hamburguesa Laneros Doble Carne","cantidad":1,"precio":4.50}]', DATE_SUB(NOW(), INTERVAL 45 MINUTE));
+
+INSERT INTO `pedidos_snacks` (`id`, `equipo_id`, `equipo_nombre`, `cliente_nombre`, `items`, `total`, `estado`, `fecha`) VALUES
+(3, 2, 'PC 02 - Ryzen 7 RTX 4070', 'María González', '[{"id":4,"nombre":"Pepsi Black Zero Azúcar (500ml)","precio":1.50,"cantidad":2}]', 3.00, 'completado', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(4, 8, 'PlayStation 5 - VIP 02', 'Ana Lopez', '[{"id":6,"nombre":"Jugo Yukery Naranja (250ml)","precio":1.20,"cantidad":1}]', 1.20, 'completado', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(5, 9, 'PlayStation 5 - Arena 03', 'Carlos Mendoza', '[{"id":11,"nombre":"Chocolate Snickers Bar (52g)","precio":1.00,"cantidad":2}]', 2.00, 'pendiente', DATE_SUB(NOW(), INTERVAL 1 HOUR));
+
+INSERT INTO `solicitudes_tiempo` (`id`, `equipo_id`, `cliente_id`, `cliente_nombre`, `minutos`, `monto`, `estado`, `confirmado_admin`, `confirmado_cliente`, `fecha`) VALUES
+(3, 2, 5, 'Kelvin Nieto', 30, 0.75, 'completada', 1, 1, DATE_SUB(NOW(), INTERVAL 4 HOUR)),
+(4, 4, 6, 'Luis Perez', 60, 1.50, 'cancelada', 0, 0, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(5, 5, 7, 'Pedro Alvarez', 120, 3.00, 'pendiente', 0, 0, DATE_SUB(NOW(), INTERVAL 2 HOUR));
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
