@@ -44,7 +44,6 @@ class SimplePDF
 
     private function escape(string $text): string
     {
-        // Reemplazar caracteres especiales y convertir a codificación WinAnsi
         $clean = @iconv('UTF-8', 'windows-1252//TRANSLIT', $text);
         if ($clean === false) {
             $clean = @iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $text);
@@ -77,7 +76,6 @@ class SimplePDF
 
     public function drawRect(float $x, float $y, float $w, float $h, string $op = 'f'): void
     {
-        // En PDF, y es la esquina inferior izquierda
         $this->write(sprintf('%.2f %.2f %.2f %.2f re %s', $x, $y - $h, $w, $h, $op));
     }
 
@@ -86,53 +84,68 @@ class SimplePDF
         $this->write(sprintf('%.2f %.2f m %.2f %.2f l S', $x1, $y1, $x2, $y2));
     }
 
-    public function drawText(string $text, float $x, float $y, int $fontSize = 10, bool $bold = false): void
+    public function drawText(string $text, float $x, float $y, float $fontSize = 10, bool $bold = false): void
     {
         $font = $bold ? '/F2' : '/F1';
         $esc  = $this->escape($text);
-        $this->write(sprintf('BT %s %d Tf %.2f %.2f Td (%s) Tj ET', $font, $fontSize, $x, $y, $esc));
+        $this->write(sprintf('BT %s %.1f Tf %.2f %.2f Td (%s) Tj ET', $font, $fontSize, $x, $y, $esc));
     }
 
-    public function drawHeader(string $title, string $subtitle, string $fecha, float $tasaBcv): void
-    {
+    public function drawHeader(
+        string $title,
+        string $subtitle,
+        string $fecha,
+        float $tasaBcv,
+        string $filtros = '',
+        string $responsable = ''
+    ): void {
         $w = $this->pageWidth - ($this->margin * 2);
+        $headerH = 68.0;
 
         // Barra superior decorativa verde neón
         $this->setFillColor(0.208, 0.753, 0.161); // #35c029
         $this->drawRect($this->margin, $this->currentY, $w, 4, 'f');
-        $this->currentY -= 10;
+        $this->currentY -= 8;
 
-        // Banner oscuro de cabecera
+        // Banner oscuro de cabecera institucional
         $this->setFillColor(0.082, 0.110, 0.137); // #151c23
-        $this->drawRect($this->margin, $this->currentY, $w, 54, 'f');
+        $this->drawRect($this->margin, $this->currentY, $w, $headerH, 'f');
 
         // Borde fino verde
         $this->setStrokeColor(0.208, 0.753, 0.161);
         $this->setLineWidth(1);
-        $this->drawRect($this->margin, $this->currentY, $w, 54, 's');
+        $this->drawRect($this->margin, $this->currentY, $w, $headerH, 's');
 
-        // Textos del encabezado
-        // Logo / Identidad
+        // Logo e Identidad Institucional
         $this->setFillColor(0.208, 0.753, 0.161);
-        $this->drawText('CYBERPOS 2.0  |  LANEROS GAMER', $this->margin + 12, $this->currentY - 18, 12, true);
+        $this->drawText('LANEROS GAMER — CYBERPOS 2.0', $this->margin + 12, $this->currentY - 16, 12, true);
 
         // Título del reporte
         $this->setFillColor(1, 1, 1);
-        $this->drawText($title, $this->margin + 12, $this->currentY - 34, 11, true);
+        $this->drawText($title, $this->margin + 12, $this->currentY - 30, 10.5, true);
 
-        // Subtítulo
-        $this->setFillColor(0.70, 0.75, 0.80);
-        $this->drawText($subtitle, $this->margin + 12, $this->currentY - 46, 8, false);
+        // Filtros aplicados
+        $this->setFillColor(0.70, 0.78, 0.86);
+        $filtrosText = $filtros !== '' ? "Filtros: {$filtros}" : $subtitle;
+        $this->drawText($filtrosText, $this->margin + 12, $this->currentY - 44, 8, false);
+
+        // Usuario Responsable
+        $this->setFillColor(0.208, 0.753, 0.161);
+        $respText = $responsable !== '' ? "Usuario Responsable: {$responsable}" : "Usuario Responsable: Administrador de Turno (administrador)";
+        $this->drawText($respText, $this->margin + 12, $this->currentY - 57, 8, true);
 
         // Metadatos a la derecha (Fecha y Tasa BCV)
-        $rightX = $this->pageWidth - $this->margin - 220;
+        $rightX = $this->pageWidth - $this->margin - 240;
         $this->setFillColor(0.90, 0.90, 0.90);
-        $this->drawText('Emisión: ' . $fecha, $rightX, $this->currentY - 20, 8, false);
+        $this->drawText('Emisión: ' . $fecha, $rightX, $this->currentY - 16, 8, false);
 
         $this->setFillColor(0.208, 0.753, 0.161);
-        $this->drawText('Tasa Oficial BCV: ' . number_format($tasaBcv, 2, ',', '.') . ' Bs/$', $rightX, $this->currentY - 36, 9, true);
+        $this->drawText('Tasa Oficial BCV: ' . number_format($tasaBcv, 2, ',', '.') . ' Bs/$', $rightX, $this->currentY - 32, 9, true);
 
-        $this->currentY -= 62;
+        $this->setFillColor(0.55, 0.65, 0.75);
+        $this->drawText('Acta Gerencial y Auditoría de Sala', $rightX, $this->currentY - 46, 7.5, false);
+
+        $this->currentY -= ($headerH + 12);
     }
 
     public function drawKPIs(array $kpis): void
@@ -149,26 +162,21 @@ class SimplePDF
 
         $x = $this->margin;
         foreach ($kpis as $kpi) {
-            // Fondo de la tarjeta
             $this->setFillColor(0.094, 0.125, 0.157);
             $this->drawRect($x, $this->currentY, $cardW, $cardH, 'f');
 
-            // Borde tarjeta
             $this->setStrokeColor(0.20, 0.28, 0.35);
             $this->setLineWidth(0.8);
             $this->drawRect($x, $this->currentY, $cardW, $cardH, 's');
 
-            // Línea de acento verde a la izquierda de la tarjeta
             $this->setFillColor(0.208, 0.753, 0.161);
             $this->drawRect($x, $this->currentY, 3, $cardH, 'f');
 
-            // Etiqueta
             $this->setFillColor(0.65, 0.72, 0.80);
             $this->drawText((string) ($kpi['label'] ?? ''), $x + 8, $this->currentY - 14, 7, false);
 
-            // Valor
             $this->setFillColor(1, 1, 1);
-            $this->drawText((string) ($kpi['value'] ?? ''), $x + 8, $this->currentY - 30, 10, true);
+            $this->drawText((string) ($kpi['value'] ?? ''), $x + 8, $this->currentY - 30, 9.5, true);
 
             $x += $cardW + $gap;
         }
@@ -185,32 +193,27 @@ class SimplePDF
         $w = $this->pageWidth - ($this->margin * 2);
         $h = 28.0;
 
-        // Fondo sugerencia
         $this->setFillColor(0.06, 0.14, 0.10);
         $this->drawRect($this->margin, $this->currentY, $w, $h, 'f');
 
-        // Borde
         $this->setStrokeColor(0.208, 0.753, 0.161);
         $this->setLineWidth(1);
         $this->drawRect($this->margin, $this->currentY, $w, $h, 's');
 
-        // Icono / Título
         $this->setFillColor(0.208, 0.753, 0.161);
         $this->drawText('RECOMENDACIÓN GERENCIAL:', $this->margin + 10, $this->currentY - 12, 8, true);
 
-        // Texto
         $this->setFillColor(0.90, 0.95, 0.92);
         $this->drawText($text, $this->margin + 10, $this->currentY - 22, 7.5, false);
 
         $this->currentY -= ($h + 10);
     }
 
-    public function drawTable(array $headers, array $widths, array $rows, array $aligns = []): void
+    public function drawTable(array $headers, array $widths, array $rows, array $aligns = [], ?array $totalsRow = null): void
     {
         $tableW = array_sum($widths);
         $rowH   = 18.0;
 
-        // Verificar salto de página para el encabezado
         if ($this->currentY - ($rowH * 2) < ($this->margin + 30)) {
             $this->addPage();
         }
@@ -237,7 +240,6 @@ class SimplePDF
             if ($this->currentY - $rowH < ($this->margin + 25)) {
                 $this->addPage();
 
-                // Re-dibujar encabezado en nueva página
                 $this->setFillColor(0.12, 0.17, 0.22);
                 $this->drawRect($this->margin, $this->currentY, $tableW, $rowH, 'f');
                 $curX = $this->margin;
@@ -250,7 +252,6 @@ class SimplePDF
                 $this->currentY -= $rowH;
             }
 
-            // Fondo alternado
             $isEven = ($rowIndex % 2 === 0);
             if ($isEven) {
                 $this->setFillColor(0.06, 0.08, 0.10);
@@ -259,7 +260,6 @@ class SimplePDF
             }
             $this->drawRect($this->margin, $this->currentY, $tableW, $rowH, 'f');
 
-            // Separador inferior suave
             $this->setStrokeColor(0.16, 0.22, 0.28);
             $this->setLineWidth(0.5);
             $this->drawLine($this->margin, $this->currentY - $rowH, $this->margin + $tableW, $this->currentY - $rowH);
@@ -270,18 +270,16 @@ class SimplePDF
                 $align = $aligns[$colIndex] ?? 'L';
                 $valStr = (string) $val;
 
-                // Color según contenido (por ejemplo estado o diagnóstico)
                 if (stripos($valStr, 'CRÍTICO') !== false || stripos($valStr, 'SUBUTILIZADO') !== false) {
-                    $this->setFillColor(1.0, 0.35, 0.35); // Rojo suave
+                    $this->setFillColor(1.0, 0.35, 0.35);
                 } elseif (stripos($valStr, 'ALTO') !== false || stripos($valStr, 'ÓPTIMO') !== false || stripos($valStr, 'DIAMANTE') !== false) {
-                    $this->setFillColor(0.25, 0.85, 0.35); // Verde
+                    $this->setFillColor(0.25, 0.85, 0.35);
                 } elseif (stripos($valStr, 'ALERTA') !== false || stripos($valStr, 'SOBRESTOCK') !== false) {
-                    $this->setFillColor(1.0, 0.75, 0.20); // Amarillo
+                    $this->setFillColor(1.0, 0.75, 0.20);
                 } else {
                     $this->setFillColor(0.85, 0.88, 0.92);
                 }
 
-                // Ajuste simple de posición x para alineación
                 $posX = $curX + 5;
                 if ($align === 'R') {
                     $approxLen = mb_strlen($valStr) * 4.2;
@@ -298,12 +296,51 @@ class SimplePDF
             $this->currentY -= $rowH;
         }
 
+        // Fila Final de Totalización en negrita obligatoria
+        if (!empty($totalsRow)) {
+            if ($this->currentY - ($rowH + 4) < ($this->margin + 20)) {
+                $this->addPage();
+            }
+
+            // Fondo destacado de totales
+            $this->setFillColor(0.08, 0.16, 0.12);
+            $this->drawRect($this->margin, $this->currentY, $tableW, $rowH + 2, 'f');
+
+            // Bordes verde neón
+            $this->setStrokeColor(0.208, 0.753, 0.161);
+            $this->setLineWidth(1.2);
+            $this->drawLine($this->margin, $this->currentY, $this->margin + $tableW, $this->currentY);
+            $this->drawLine($this->margin, $this->currentY - ($rowH + 2), $this->margin + $tableW, $this->currentY - ($rowH + 2));
+
+            $curX = $this->margin;
+            foreach ($totalsRow as $colIndex => $val) {
+                $colW   = $widths[$colIndex] ?? 60.0;
+                $align  = $aligns[$colIndex] ?? 'L';
+                $valStr = (string) $val;
+
+                $this->setFillColor(0.208, 0.753, 0.161);
+
+                $posX = $curX + 5;
+                if ($align === 'R') {
+                    $approxLen = mb_strlen($valStr) * 4.3;
+                    $posX = max($curX + 5, $curX + $colW - $approxLen - 5);
+                } elseif ($align === 'C') {
+                    $approxLen = mb_strlen($valStr) * 4.3;
+                    $posX = max($curX + 2, $curX + ($colW - $approxLen) / 2);
+                }
+
+                $this->drawText($valStr, $posX, $this->currentY - 13, 8, true);
+                $curX += $colW;
+            }
+
+            $this->currentY -= ($rowH + 6);
+        }
+
         $this->currentY -= 8;
     }
 
     public function output(): string
     {
-        // Guardar la página actual
         if ($this->currentPage > 0) {
             $this->pages[$this->currentPage] = $this->currentStream;
         }
@@ -323,20 +360,13 @@ class SimplePDF
         }
         unset($stream);
 
-        // Estructura de objetos PDF
         $objects = [];
         $offsets = [];
 
-        // Obj 1: Catalog
         $objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-
-        // Obj 3: Font Helvetica
         $objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
-
-        // Obj 4: Font Helvetica-Bold
         $objects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
 
-        // Páginas
         $pageObjIds = [];
         $nextId = 5;
 
@@ -348,35 +378,31 @@ class SimplePDF
             $contentStream = $this->pages[$i] ?? '';
             $streamLen     = strlen($contentStream);
 
-            $objects[$pageId] = sprintf(
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents %d 0 R >>",
+            $objects[$contentId] = "<< /Length {$streamLen} >>\nstream\n{$contentStream}\nendstream";
+            $objects[$pageId]    = sprintf(
+                "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /MediaBox [0 0 %.2f %.2f] /Contents %d 0 R >>",
                 $this->pageWidth,
                 $this->pageHeight,
                 $contentId
             );
-
-            $objects[$contentId] = sprintf("<< /Length %d >>\nstream\n%s\nendstream", $streamLen, $contentStream);
         }
 
-        // Obj 2: Pages
         $kidsStr = implode(' ', array_map(fn($id) => "{$id} 0 R", $pageObjIds));
         $objects[2] = sprintf("<< /Type /Pages /Kids [%s] /Count %d >>", $kidsStr, $totalPages);
 
-        // Construir PDF binario
         ksort($objects);
-        $out = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
 
-        foreach ($objects as $id => $obj) {
+        $out = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+        foreach ($objects as $id => $objData) {
             $offsets[$id] = strlen($out);
-            $out .= "{$id} 0 obj\n{$obj}\nendobj\n";
+            $out .= "{$id} 0 obj\n{$objData}\nendobj\n";
         }
 
         $xrefOffset = strlen($out);
-        $maxId = max(array_keys($objects));
-        $out .= "xref\n0 " . ($maxId + 1) . "\n";
-        $out .= "0000000000 65535 f \n";
+        $maxObjId   = max(array_keys($objects));
+        $out .= sprintf("xref\n0 %d\n0000000000 65535 f \n", $maxObjId + 1);
 
-        for ($i = 1; $i <= $maxId; $i++) {
+        for ($i = 1; $i <= $maxObjId; $i++) {
             if (isset($offsets[$i])) {
                 $out .= sprintf("%010d 00000 n \n", $offsets[$i]);
             } else {
@@ -384,25 +410,24 @@ class SimplePDF
             }
         }
 
-        $out .= "trailer\n<< /Size " . ($maxId + 1) . " /Root 1 0 R >>\n";
-        $out .= "startxref\n{$xrefOffset}\n%%EOF\n";
-
+        $out .= sprintf("trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF", $maxObjId + 1, $xrefOffset);
         return $out;
     }
 
-    public function download(string $filename): void
+    public function download(string $filename = 'reporte.pdf'): void
     {
-        $pdf = $this->output();
-        if (ob_get_length()) {
-            ob_clean();
+        $bin = $this->output();
+        if (headers_sent()) {
+            echo $bin;
+            exit;
         }
+
         header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="' . rawurlencode($filename) . '"');
-        header('Content-Length: ' . strlen($pdf));
+        header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
+        header('Content-Length: ' . strlen($bin));
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
-        echo $pdf;
+        echo $bin;
         exit;
     }
 }
-

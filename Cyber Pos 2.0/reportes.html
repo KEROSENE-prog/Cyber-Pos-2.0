@@ -1,458 +1,542 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Centro de Reportes Gerenciales - CyberPOS</title>
-<link rel="stylesheet" href="styles.css">
-<style>
-  .reports-toolbar {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 24px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: flex-end;
-    box-shadow: 0 4px 16px rgba(0,0,0,.25);
-  }
-  .report-filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-    min-width: 220px;
-  }
-  .report-filter-group.narrow {
-    flex: 0 1 160px;
-    min-width: 140px;
-  }
-  .report-filter-group label {
-    font-size: .82rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-  }
-  .report-filter-group select,
-  .report-filter-group input {
-    background: rgba(0,0,0,.35);
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: .92rem;
-    outline: none;
-    transition: border-color .2s, box-shadow .2s;
-  }
-  .report-filter-group select:focus,
-  .report-filter-group input:focus {
-    border-color: var(--brand-primary);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--brand-primary) 35%, transparent);
-  }
-  .actions-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-  }
-  .btn-report {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 18px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: .9rem;
-    cursor: pointer;
-    border: none;
-    transition: transform .15s, box-shadow .2s, filter .2s;
-  }
-  .btn-report:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.1);
-  }
-  .btn-report:active {
-    transform: translateY(0);
-  }
-  .btn-report-primary {
-    background: var(--brand-primary);
-    color: #0b0f13;
-    box-shadow: 0 0 12px color-mix(in srgb, var(--brand-primary) 40%, transparent);
-  }
-  .btn-report-pdf {
-    background: #e11d48;
-    color: #fff;
-    box-shadow: 0 0 12px rgba(225,29,72,.3);
-  }
-  .btn-report-excel {
-    background: #10b981;
-    color: #0b0f13;
-    box-shadow: 0 0 12px rgba(16,185,129,.3);
-  }
-  .btn-report-email {
-    background: #0284c7;
-    color: #fff;
-    box-shadow: 0 0 12px rgba(2,132,199,.3);
-  }
-  .recommendation-banner {
-    background: rgba(53, 192, 41, 0.08);
-    border-left: 4px solid var(--brand-primary);
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-  }
-  .recommendation-banner .icon {
-    font-size: 1.5rem;
-    line-height: 1;
-  }
-  .recommendation-banner .text-box h4 {
-    margin: 0 0 4px 0;
-    font-size: .92rem;
-    color: var(--brand-primary);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-  }
-  .recommendation-banner .text-box p {
-    margin: 0;
-    font-size: .9rem;
-    color: var(--text-main);
-    line-height: 1.5;
-  }
-  .preview-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,.3);
-    margin-bottom: 30px;
-  }
-  .preview-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(0,0,0,.2);
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .preview-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-main);
-  }
-  .preview-meta {
-    font-size: .82rem;
-    color: var(--text-muted);
-  }
-  .table-responsive {
-    overflow-x: auto;
-    max-height: 520px;
-  }
-  .table-report {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .88rem;
-    white-space: nowrap;
-  }
-  .table-report th {
-    background: rgba(0,0,0,.4);
-    color: var(--brand-primary);
-    padding: 12px 16px;
-    text-align: left;
-    font-weight: 700;
-    font-size: .82rem;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    border-bottom: 2px solid var(--brand-primary);
-  }
-  .table-report td {
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    color: var(--text-main);
-  }
-  .table-report tr:hover td {
-    background: rgba(53,192,41,.05);
-  }
-  .status-tag {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 99px;
-    font-size: .75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .status-tag.alto, .status-tag.optimo, .status-tag.diamante {
-    background: rgba(53,192,41,.15);
-    color: #35c029;
-    border: 1px solid rgba(53,192,41,.4);
-  }
-  .status-tag.estandar, .status-tag.frecuente {
-    background: rgba(2,132,199,.15);
-    color: #38bdf8;
-    border: 1px solid rgba(2,132,199,.4);
-  }
-  .status-tag.alerta, .status-tag.sobrestock {
-    background: rgba(234,179,8,.15);
-    color: #facc15;
-    border: 1px solid rgba(234,179,8,.4);
-  }
-  .status-tag.critico, .status-tag.subutilizado {
-    background: rgba(239,68,68,.15);
-    color: #f87171;
-    border: 1px solid rgba(239,68,68,.4);
-  }
-  /* Modal Dialog */
-  dialog.cyber-modal {
-    background: #12181f;
-    color: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 0;
-    max-width: 520px;
-    width: 90%;
-    box-shadow: 0 16px 40px rgba(0,0,0,.7);
-  }
-  dialog.cyber-modal::backdrop {
-    background: rgba(0,0,0,.75);
-    backdrop-filter: blur(4px);
-  }
-  .modal-inner {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
-  }
-  .modal-header h3 {
-    margin: 0;
-    color: var(--brand-primary);
-    font-size: 1.15rem;
-  }
-  .btn-close-modal {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.4rem;
-    cursor: pointer;
-  }
-  .form-group-email {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .form-group-email label {
-    font-size: .82rem;
-    color: var(--text-muted);
-    font-weight: 600;
-  }
-  .form-group-email input {
-    background: rgba(0,0,0,.4);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 10px 12px;
-    color: #fff;
-    outline: none;
-  }
-  .form-group-email input:focus {
-    border-color: var(--brand-primary);
-  }
-  .smtp-collapsible {
-    border: 1px dashed rgba(255,255,255,.15);
-    border-radius: 8px;
-    padding: 12px;
-    background: rgba(0,0,0,.2);
-  }
-  .smtp-collapsible summary {
-    cursor: pointer;
-    font-size: .82rem;
-    color: var(--brand-primary);
-    font-weight: 600;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centro de Reportes Gerenciales - CyberPOS</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .reports-toolbar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+    }
+
+    .report-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .report-filter-group.narrow {
+      flex: 0 1 160px;
+      min-width: 140px;
+    }
+
+    .report-filter-group label {
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .report-filter-group select,
+    .report-filter-group input {
+      background: rgba(0, 0, 0, .35);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: .92rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .report-filter-group select:focus,
+    .report-filter-group input:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--brand-primary) 35%, transparent);
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .btn-report {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .9rem;
+      cursor: pointer;
+      border: none;
+      transition: transform .15s, box-shadow .2s, filter .2s;
+    }
+
+    .btn-report:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+    }
+
+    .btn-report:active {
+      transform: translateY(0);
+    }
+
+    .btn-report-primary {
+      background: var(--brand-primary);
+      color: #0b0f13;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--brand-primary) 40%, transparent);
+    }
+
+    .btn-report-pdf {
+      background: #e11d48;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(225, 29, 72, .3);
+    }
+
+    .btn-report-excel {
+      background: #10b981;
+      color: #0b0f13;
+      box-shadow: 0 0 12px rgba(16, 185, 129, .3);
+    }
+
+    .btn-report-email {
+      background: #0284c7;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(2, 132, 199, .3);
+    }
+
+    .recommendation-banner {
+      background: rgba(53, 192, 41, 0.08);
+      border-left: 4px solid var(--brand-primary);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .recommendation-banner .icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .recommendation-banner .text-box h4 {
+      margin: 0 0 4px 0;
+      font-size: .92rem;
+      color: var(--brand-primary);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .recommendation-banner .text-box p {
+      margin: 0;
+      font-size: .9rem;
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+
+    .preview-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .3);
+      margin-bottom: 30px;
+    }
+
+    .preview-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, .2);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .preview-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: var(--text-main);
+    }
+
+    .preview-meta {
+      font-size: .82rem;
+      color: var(--text-muted);
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      max-height: 520px;
+    }
+
+    .table-report {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+      white-space: nowrap;
+    }
+
+    .table-report th {
+      background: rgba(0, 0, 0, .4);
+      color: var(--brand-primary);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 700;
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      border-bottom: 2px solid var(--brand-primary);
+    }
+
+    .table-report td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05);
+      color: var(--text-main);
+    }
+
+    .table-report tr:hover td {
+      background: rgba(53, 192, 41, .05);
+    }
+
+    .status-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-tag.alto,
+    .status-tag.optimo,
+    .status-tag.diamante {
+      background: rgba(53, 192, 41, .15);
+      color: #35c029;
+      border: 1px solid rgba(53, 192, 41, .4);
+    }
+
+    .status-tag.estandar,
+    .status-tag.frecuente {
+      background: rgba(2, 132, 199, .15);
+      color: #38bdf8;
+      border: 1px solid rgba(2, 132, 199, .4);
+    }
+
+    .status-tag.alerta,
+    .status-tag.sobrestock {
+      background: rgba(234, 179, 8, .15);
+      color: #facc15;
+      border: 1px solid rgba(234, 179, 8, .4);
+    }
+
+    .status-tag.critico,
+    .status-tag.subutilizado {
+      background: rgba(239, 68, 68, .15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, .4);
+    }
+
+    /* Fila de Totales */
+    .fila-totales td {
+      background: rgba(53, 192, 41, 0.12) !important;
+      color: var(--brand-primary) !important;
+      font-weight: 700 !important;
+      border-top: 2px solid var(--brand-primary) !important;
+      border-bottom: 2px solid var(--brand-primary) !important;
+      font-size: .9rem !important;
+    }
+
+    /* Modal Dialog */
+    dialog.cyber-modal {
+      background: #12181f;
+      color: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 0;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .7);
+    }
+
+    dialog.cyber-modal::backdrop {
+      background: rgba(0, 0, 0, .75);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-inner {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--brand-primary);
+      font-size: 1.15rem;
+    }
+
+    .btn-close-modal {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+
+    .form-group-email {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group-email label {
+      font-size: .82rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .form-group-email input {
+      background: rgba(0, 0, 0, .4);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      outline: none;
+    }
+
+    .form-group-email input:focus {
+      border-color: var(--brand-primary);
+    }
+
+    .smtp-collapsible {
+      border: 1px dashed rgba(255, 255, 255, .15);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(0, 0, 0, .2);
+    }
+
+    .smtp-collapsible summary {
+      cursor: pointer;
+      font-size: .82rem;
+      color: var(--brand-primary);
+      font-weight: 600;
+    }
+  </style>
 </head>
+
 <body>
-<aside id="sidebar">
-  <header><h2>CyberPOS</h2></header>
-  <nav>
-    <a href="dashboard.html"><span>🖥️</span> Monitoreo</a>
-    <a href="crud.html"><span>🍔</span> Inventario</a>
-    <a href="ventas.html"><span>💰</span> Ventas</a>
-    <a href="reportes.html" class="active"><span>📊</span> Reportes</a>
-    <a href="configuracion.html"><span>⚙️</span> Configuración</a>
-    <a href="login.html"><span>🚪</span> Salir</a>
-  </nav>
-</aside>
+  <aside id="sidebar">
+    <header>
+      <h2>CyberPOS</h2>
+    </header>
+    <nav>
+      <a href="dashboard.html"><span>🖥️</span> Monitoreo</a>
+      <a href="crud.html"><span>🍔</span> Inventario</a>
+      <a href="ventas.html"><span>💰</span> Ventas</a>
+      <a href="reportes.html" class="active"><span>📊</span> Reportes</a>
+      <a href="configuracion.html"><span>⚙️</span> Configuración</a>
+      <a href="login.html"><span>🚪</span> Salir</a>
+    </nav>
+  </aside>
 
-<main>
-  <header class="topbar">
-    <button class="hamburger" id="menuBtn">☰</button>
-    <figure>
-      <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
-      <figcaption>Admin User</figcaption>
-    </figure>
-  </header>
-
-  <section class="content">
-    <header class="section-header" style="margin-bottom:20px">
-      <h2>📊 Centro de Reportes Gerenciales con Criterio</h2>
-      <p style="color:var(--text-muted);margin:4px 0 0;font-size:.9rem">
-        Analítica avanzada para la toma de decisiones, control financiero multimoneda (USD / Bs BCV) y auditoría operativa.
-      </p>
+  <main>
+    <header class="topbar">
+      <button class="hamburger" id="menuBtn">☰</button>
+      <figure>
+        <img src="logo-laneros.jpg" alt="Avatar Admin Laneros Gamer">
+        <figcaption>Admin User</figcaption>
+      </figure>
     </header>
 
-    <!-- Barra de Filtros Gerenciales -->
-    <section class="reports-toolbar">
-      <div class="report-filter-group" style="flex: 2; min-width: 280px;">
-        <label for="selectReporte">Seleccionar Reporte Estratégico</label>
-        <select id="selectReporte">
-          <option value="1">1. Rentabilidad y Rendimiento de Estaciones (PCs vs Consolas)</option>
-          <option value="2">2. Rotación de Inventario y Alerta de Reposición Crítica</option>
-          <option value="3">3. Cierre y Arqueo Gerencial Multimoneda (Caja)</option>
-          <option value="4">4. Ranking Pareto de Clientes VIP y Hábitos de Consumo</option>
-          <option value="5">5. Eficiencia Operativa de Sala y Lucro Cesante</option>
-        </select>
-      </div>
+    <section class="content">
+      <header class="section-header" style="margin-bottom:20px">
+        <h2>📊 Centro de Reportes Gerenciales con Criterio</h2>
+        <p style="color:var(--text-muted);margin:4px 0 0;font-size:.9rem">
+          Analítica avanzada para la toma de decisiones, control financiero multimoneda (USD / Bs BCV) y auditoría
+          operativa.
+        </p>
+      </header>
 
-      <div class="report-filter-group narrow">
-        <label for="fechaDesde">Fecha Desde</label>
-        <input type="date" id="fechaDesde">
-      </div>
-
-      <div class="report-filter-group narrow">
-        <label for="fechaHasta">Fecha Hasta</label>
-        <input type="date" id="fechaHasta">
-      </div>
-
-      <div class="report-filter-group" style="flex:0; min-width:auto;">
-        <button id="btnGenerarPreview" class="btn-report btn-report-primary">
-          <span>🔍</span> Generar Vista Previa
-        </button>
-      </div>
-    </section>
-
-    <!-- Resumen Ejecutivo (KPIs Dinámicos) -->
-    <section class="kpi-grid" id="kpisReporteContainer" style="margin-bottom:20px;">
-      <!-- Se puebla dinámicamente con JS -->
-    </section>
-
-    <!-- Recomendación Gerencial Automática -->
-    <article class="recommendation-banner" id="bannerRecomendacion" style="display:none;">
-      <span class="icon">💡</span>
-      <div class="text-box">
-        <h4>Conclusión &bull; Recomendación Gerencial Automática</h4>
-        <p id="textoRecomendacion"></p>
-      </div>
-    </article>
-
-    <!-- Previsualización en Vivo de la Tabla -->
-    <article class="preview-card">
-      <div class="preview-header">
-        <div>
-          <h3 id="previewTitulo">Vista Previa del Reporte</h3>
-          <span class="preview-meta" id="previewMeta">Cargando datos...</span>
+      <!-- Barra de Filtros Gerenciales -->
+      <section class="reports-toolbar">
+        <div class="report-filter-group" style="flex: 2; min-width: 280px;">
+          <label for="selectReporte">Seleccionar Reporte Estratégico</label>
+          <select id="selectReporte">
+            <option value="1">1. Rentabilidad y Rendimiento de Estaciones (PCs vs Consolas)</option>
+            <option value="2">2. Rotación de Inventario y Alerta de Reposición Crítica</option>
+            <option value="3">3. Cierre y Arqueo Gerencial Multimoneda (Caja)</option>
+            <option value="4">4. Ranking Pareto de Clientes VIP y Hábitos de Consumo</option>
+            <option value="5">5. Eficiencia Operativa de Sala y Lucro Cesante</option>
+          </select>
         </div>
-        <div class="actions-row">
-          <button id="btnDescargarPdf" class="btn-report btn-report-pdf" title="Descargar PDF binario formal">
-            <span>📄</span> Descargar PDF (.pdf)
-          </button>
-          <button id="btnDescargarExcel" class="btn-report btn-report-excel" title="Descargar libro Excel nativo">
-            <span>📊</span> Descargar Excel (.xlsx)
-          </button>
-          <button id="btnAbrirModalEmail" class="btn-report btn-report-email" title="Enviar informe ejecutivo por correo">
-            <span>✉️</span> Enviar por Email en Vivo
+
+        <div class="report-filter-group narrow">
+          <label for="fechaDesde">Fecha Desde</label>
+          <input type="date" id="fechaDesde">
+        </div>
+
+        <div class="report-filter-group narrow">
+          <label for="fechaHasta">Fecha Hasta</label>
+          <input type="date" id="fechaHasta">
+        </div>
+
+        <div class="report-filter-group narrow" id="groupSubfiltro">
+          <label for="selectSubfiltro" id="lblSubfiltro">Segmentación / Filtro</label>
+          <select id="selectSubfiltro">
+            <option value="todos">Todas las Estaciones</option>
+            <option value="pc">Solo PCs</option>
+            <option value="consola">Solo Consolas</option>
+          </select>
+        </div>
+
+        <div class="report-filter-group" style="flex:0; min-width:auto;">
+          <button id="btnGenerarPreview" class="btn-report btn-report-primary">
+            <span>🔍</span> Generar Vista Previa
           </button>
         </div>
+      </section>
+
+      <!-- Resumen Ejecutivo (KPIs Dinámicos) -->
+      <section class="kpi-grid" id="kpisReporteContainer" style="margin-bottom:20px;">
+        <!-- Se puebla dinámicamente con JS -->
+      </section>
+
+      <!-- Recomendación Gerencial Automática -->
+      <article class="recommendation-banner" id="bannerRecomendacion" style="display:none;">
+        <span class="icon">💡</span>
+        <div class="text-box">
+          <h4>Conclusión &bull; Recomendación Gerencial Automática</h4>
+          <p id="textoRecomendacion"></p>
+        </div>
+      </article>
+
+      <!-- Previsualización en Vivo de la Tabla -->
+      <article class="preview-card">
+        <div class="preview-header">
+          <div>
+            <h3 id="previewTitulo">Vista Previa del Reporte</h3>
+            <span class="preview-meta" id="previewMeta">Cargando datos...</span>
+          </div>
+          <div class="actions-row">
+            <button id="btnDescargarPdf" class="btn-report btn-report-pdf" title="Descargar PDF binario formal">
+              <span>📄</span> Descargar PDF (.pdf)
+            </button>
+            <button id="btnDescargarExcel" class="btn-report btn-report-excel" title="Descargar libro Excel nativo">
+              <span>📊</span> Descargar Excel (.xlsx)
+            </button>
+            <button id="btnAbrirModalEmail" class="btn-report btn-report-email"
+              title="Enviar informe ejecutivo por correo">
+              <span>✉️</span> Enviar por Email en Vivo
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table-report" id="tablaReporte">
+            <thead id="tablaReporteHead"></thead>
+            <tbody id="tablaReporteBody"></tbody>
+            <tfoot id="tablaReporteFoot"></tfoot>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <!-- Modal Envío por Correo en Vivo -->
+  <dialog id="modalEmail" class="cyber-modal">
+    <div class="modal-inner">
+      <div class="modal-header">
+        <h3>✉️ Enviar Reporte por Correo en Vivo</h3>
+        <button type="button" class="btn-close-modal" id="btnCerrarModalEmail">&times;</button>
       </div>
 
-      <div class="table-responsive">
-        <table class="table-report" id="tablaReporte">
-          <thead id="tablaReporteHead"></thead>
-          <tbody id="tablaReporteBody"></tbody>
-        </table>
-      </div>
-    </article>
-  </section>
-</main>
+      <p style="font-size:.85rem;color:var(--text-muted);margin:0;">
+        El sistema compilará el informe gerencial con cuerpo HTML corporativo y adjuntará automáticamente el documento
+        oficial en formato PDF.
+      </p>
 
-<!-- Modal Envío por Correo en Vivo -->
-<dialog id="modalEmail" class="cyber-modal">
-  <div class="modal-inner">
-    <div class="modal-header">
-      <h3>✉️ Enviar Reporte por Correo en Vivo</h3>
-      <button type="button" class="btn-close-modal" id="btnCerrarModalEmail">&times;</button>
+      <form id="formEnviarEmail" onsubmit="event.preventDefault()">
+        <div class="form-group-email">
+          <label for="emailDestino">Correo Electrónico Destinatario *</label>
+          <input type="email" id="emailDestino" placeholder="zedmous@gmail.com" value="zedmous@gmail.com" required>
+        </div>
+
+        <div class="form-group-email" style="margin-top:10px;">
+          <label for="emailFormatoAdjunto">Formato de Reporte Adjunto</label>
+          <select id="emailFormatoAdjunto" style="background:rgba(0,0,0,.4);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:#fff;outline:none;">
+            <option value="pdf" selected>📄 Documento PDF Oficial (.pdf)</option>
+            <option value="xlsx">📊 Libro Excel Dinámico (.xlsx)</option>
+          </select>
+        </div>
+
+        <div class="form-group-email" style="margin-top:10px;">
+          <label for="emailAsunto">Asunto del Correo</label>
+          <input type="text" id="emailAsunto" placeholder="Reporte Gerencial CyberPOS">
+        </div>
+
+        <!-- Credenciales SMTP opcionales -->
+        <details class="smtp-collapsible" style="margin-top:14px;">
+          <summary>⚙️ Configuración SMTP Rápida (Opcional / Pruebas en Vivo)</summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+            <div class="form-group-email">
+              <label for="smtpHost">Servidor Host</label>
+              <input type="text" id="smtpHost" placeholder="smtp.gmail.com">
+            </div>
+            <div class="form-group-email">
+              <label for="smtpPort">Puerto</label>
+              <input type="number" id="smtpPort" placeholder="587">
+            </div>
+            <div class="form-group-email">
+              <label for="smtpUser">Usuario / Email</label>
+              <input type="text" id="smtpUser" placeholder="cuenta@gmail.com">
+            </div>
+            <div class="form-group-email">
+              <label for="smtpPass">Contraseña de Aplicación</label>
+              <input type="password" id="smtpPass" placeholder="••••••••••••••••">
+            </div>
+          </div>
+          <small style="color:var(--text-muted);font-size:.75rem;margin-top:6px;display:block;">
+            Si se dejan en blanco, el backend utilizará las variables de entorno de producción (.env).
+          </small>
+        </details>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+          <button type="button" class="btn-report" id="btnCancelarEmail"
+            style="background:rgba(255,255,255,.1);color:#fff">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-report btn-report-primary" id="btnSubmitEmail">
+            <span>🚀</span> Enviar Ahora
+          </button>
+        </div>
+      </form>
     </div>
+  </dialog>
 
-    <p style="font-size:.85rem;color:var(--text-muted);margin:0;">
-      El sistema compilará el informe gerencial con cuerpo HTML corporativo y adjuntará automáticamente el documento oficial en formato PDF.
-    </p>
-
-    <form id="formEnviarEmail" onsubmit="event.preventDefault()">
-      <div class="form-group-email">
-        <label for="emailDestino">Correo Electrónico Destinatario *</label>
-        <input type="email" id="emailDestino" placeholder="gerencia@lanerosgamer.com" required>
-      </div>
-
-      <div class="form-group-email" style="margin-top:10px;">
-        <label for="emailAsunto">Asunto (Opcional)</label>
-        <input type="text" id="emailAsunto" placeholder="Reporte Gerencial CyberPOS">
-      </div>
-
-      <!-- Credenciales SMTP opcionales -->
-      <details class="smtp-collapsible" style="margin-top:14px;">
-        <summary>⚙️ Configuración SMTP Rápida (Opcional / Pruebas en Vivo)</summary>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-          <div class="form-group-email">
-            <label for="smtpHost">Servidor Host</label>
-            <input type="text" id="smtpHost" placeholder="smtp.gmail.com">
-          </div>
-          <div class="form-group-email">
-            <label for="smtpPort">Puerto</label>
-            <input type="number" id="smtpPort" placeholder="587">
-          </div>
-          <div class="form-group-email">
-            <label for="smtpUser">Usuario / Email</label>
-            <input type="text" id="smtpUser" placeholder="cuenta@gmail.com">
-          </div>
-          <div class="form-group-email">
-            <label for="smtpPass">Contraseña de Aplicación</label>
-            <input type="password" id="smtpPass" placeholder="••••••••••••••••">
-          </div>
-        </div>
-        <small style="color:var(--text-muted);font-size:.75rem;margin-top:6px;display:block;">
-          Si se dejan en blanco, el backend utilizará las variables de entorno de producción (.env).
-        </small>
-      </details>
-
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
-        <button type="button" class="btn-report" id="btnCancelarEmail" style="background:rgba(255,255,255,.1);color:#fff">
-          Cancelar
-        </button>
-        <button type="submit" class="btn-report btn-report-primary" id="btnSubmitEmail">
-          <span>🚀</span> Enviar Ahora
-        </button>
-      </div>
-    </form>
-  </div>
-</dialog>
-
-<script src="js/api.js"></script>
-<script src="js/reportes.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/reportes.js"></script>
 </body>
-</html>
 
+</html>

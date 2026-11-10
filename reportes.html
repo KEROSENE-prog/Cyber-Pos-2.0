@@ -249,6 +249,16 @@
       border: 1px solid rgba(239, 68, 68, .4);
     }
 
+    /* Fila de Totales */
+    .fila-totales td {
+      background: rgba(53, 192, 41, 0.12) !important;
+      color: var(--brand-primary) !important;
+      font-weight: 700 !important;
+      border-top: 2px solid var(--brand-primary) !important;
+      border-bottom: 2px solid var(--brand-primary) !important;
+      font-size: .9rem !important;
+    }
+
     /* Modal Dialog */
     dialog.cyber-modal {
       background: #12181f;
@@ -392,6 +402,15 @@
           <input type="date" id="fechaHasta">
         </div>
 
+        <div class="report-filter-group narrow" id="groupSubfiltro">
+          <label for="selectSubfiltro" id="lblSubfiltro">Segmentación / Filtro</label>
+          <select id="selectSubfiltro">
+            <option value="todos">Todas las Estaciones</option>
+            <option value="pc">Solo PCs</option>
+            <option value="consola">Solo Consolas</option>
+          </select>
+        </div>
+
         <div class="report-filter-group" style="flex:0; min-width:auto;">
           <button id="btnGenerarPreview" class="btn-report btn-report-primary">
             <span>🔍</span> Generar Vista Previa
@@ -438,6 +457,7 @@
           <table class="table-report" id="tablaReporte">
             <thead id="tablaReporteHead"></thead>
             <tbody id="tablaReporteBody"></tbody>
+            <tfoot id="tablaReporteFoot"></tfoot>
           </table>
         </div>
       </article>
@@ -460,11 +480,19 @@
       <form id="formEnviarEmail" onsubmit="event.preventDefault()">
         <div class="form-group-email">
           <label for="emailDestino">Correo Electrónico Destinatario *</label>
-          <input type="email" id="emailDestino" placeholder="gerencia@lanerosgamer.com" required>
+          <input type="email" id="emailDestino" placeholder="zedmous@gmail.com" value="zedmous@gmail.com" required>
         </div>
 
         <div class="form-group-email" style="margin-top:10px;">
-          <label for="emailAsunto">Asunto (Opcional)</label>
+          <label for="emailFormatoAdjunto">Formato de Reporte Adjunto</label>
+          <select id="emailFormatoAdjunto" style="background:rgba(0,0,0,.4);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;color:#fff;outline:none;">
+            <option value="pdf" selected>📄 Documento PDF Oficial (.pdf)</option>
+            <option value="xlsx">📊 Libro Excel Dinámico (.xlsx)</option>
+          </select>
+        </div>
+
+        <div class="form-group-email" style="margin-top:10px;">
+          <label for="emailAsunto">Asunto del Correo</label>
           <input type="text" id="emailAsunto" placeholder="Reporte Gerencial CyberPOS">
         </div>
 

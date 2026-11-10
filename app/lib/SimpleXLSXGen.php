@@ -8,7 +8,13 @@ declare(strict_types=1);
  */
 class SimpleXLSXGen
 {
+    private string $empresa = 'LANEROS GAMER C.A. - SISTEMA CYBERPOS 2.0';
     private string $title;
+    private string $fechaEmision = '';
+    private string $usuarioResponsable = '';
+    private string $filtrosAplicados = '';
+    private float $tasaBcv = 36.85;
+
     private array $headers = [];
     private array $rows = [];
     private array $types = [];
@@ -19,6 +25,22 @@ class SimpleXLSXGen
     public function __construct(string $title = 'Reporte')
     {
         $this->title = $title;
+        $this->fechaEmision = date('d/m/Y H:i:s');
+    }
+
+    public function setInstitutionalHeader(
+        string $titulo,
+        string $fechaEmision,
+        string $usuarioResponsable,
+        string $filtros,
+        float $tasaBcv
+    ): self {
+        $this->title = $titulo;
+        $this->fechaEmision = $fechaEmision;
+        $this->usuarioResponsable = $usuarioResponsable;
+        $this->filtrosAplicados = $filtros;
+        $this->tasaBcv = $tasaBcv;
+        return $this;
     }
 
     public function setMeta(string $info): self
@@ -80,42 +102,56 @@ class SimpleXLSXGen
         $xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n";
         $xml .= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' . "\n";
 
-        // Ajuste de ancho de columnas
         $colCount = max(count($this->headers), 1);
         $xml .= '  <cols>' . "\n";
         for ($c = 1; $c <= $colCount; $c++) {
-            $xml .= sprintf('    <col min="%d" max="%d" width="22" customWidth="1"/>' . "\n", $c, $c);
+            $xml .= sprintf('    <col min="%d" max="%d" width="23" customWidth="1"/>' . "\n", $c, $c);
         }
         $xml .= '  </cols>' . "\n";
 
         $xml .= '  <sheetData>' . "\n";
         $r = 1;
 
-        // Fila 1: Título Institucional
+        // Fila 1: LANEROS GAMER C.A. - SISTEMA CYBERPOS 2.0
         $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
-        $xml .= sprintf('      <c r="A%d" s="1" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml('CYBERPOS 2.0 - LANEROS GAMER'));
+        $xml .= sprintf('      <c r="A%d" s="1" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml($this->empresa));
         $xml .= '    </row>' . "\n";
         $r++;
 
-        // Fila 2: Título del Reporte
+        // Fila 2: Título del Reporte Gerencial
         $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
         $xml .= sprintf('      <c r="A%d" s="2" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml($this->title));
         $xml .= '    </row>' . "\n";
         $r++;
 
-        // Fila 3: Metadatos
-        if ($this->metaInfo !== '') {
-            $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
-            $xml .= sprintf('      <c r="A%d" s="0" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml($this->metaInfo));
-            $xml .= '    </row>' . "\n";
-            $r++;
-        }
+        // Fila 3: Fecha/Hora de emisión y Usuario Responsable
+        $emisionResp = sprintf(
+            'Fecha y Hora de Emisión: %s | Usuario Responsable: %s',
+            $this->fechaEmision !== '' ? $this->fechaEmision : date('d/m/Y H:i:s'),
+            $this->usuarioResponsable !== '' ? $this->usuarioResponsable : 'Administrador de Turno (administrador)'
+        );
+        $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
+        $xml .= sprintf('      <c r="A%d" s="0" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml($emisionResp));
+        $xml .= '    </row>' . "\n";
+        $r++;
+
+        // Fila 4: Filtros aplicados (Desde, Hasta, Tasa BCV Vigente)
+        $filtrosStr = sprintf(
+            'Filtros Aplicados: %s | Tasa BCV Vigente: %s Bs/$',
+            $this->filtrosAplicados !== '' ? $this->filtrosAplicados : 'Período Completo',
+            number_format($this->tasaBcv, 2, ',', '.')
+        );
+        $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
+        $xml .= sprintf('      <c r="A%d" s="0" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $r, $this->escapeXml($filtrosStr));
+        $xml .= '    </row>' . "\n";
+        $r++;
 
         // Fila de KPIs si existen
         if (!empty($this->kpis)) {
-            $r++; // espacio en blanco
+            $r++; // Espacio
             $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, $colCount);
             foreach ($this->kpis as $ki => $kpi) {
+                if ($ki >= $colCount) break;
                 $col = $this->colLetter($ki);
                 $lbl = ($kpi['label'] ?? '') . ': ' . ($kpi['value'] ?? '');
                 $xml .= sprintf('      <c r="%s%d" s="4" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $col, $r, $this->escapeXml($lbl));
@@ -124,7 +160,7 @@ class SimpleXLSXGen
             $r++;
         }
 
-        $r++; // espacio antes de la tabla
+        $r++; // Espacio antes de la tabla
 
         // Encabezados de tabla
         if (!empty($this->headers)) {
@@ -160,7 +196,7 @@ class SimpleXLSXGen
             $r++;
         }
 
-        // Fila de Totales si existe
+        // Fila Final de Totales / KPIs
         if (!empty($this->totals)) {
             $xml .= sprintf('    <row r="%d" spans="1:%d">' . "\n", $r, count($this->totals));
             foreach ($this->totals as $ci => $val) {
@@ -168,7 +204,7 @@ class SimpleXLSXGen
                 $type = $this->types[$ci] ?? 'string';
 
                 if (is_numeric($val) && ($type === 'number' || $type === 'currency' || $type === 'percent' || $type === 'int')) {
-                    $styleId = 9; // Total moneda/número bold
+                    $styleId = 9;
                     $xml .= sprintf('      <c r="%s%d" s="%d"><v>%s</v></c>' . "\n", $col, $r, $styleId, (string) $val);
                 } else {
                     $xml .= sprintf('      <c r="%s%d" s="2" t="inlineStr"><is><t>%s</t></is></c>' . "\n", $col, $r, $this->escapeXml((string) $val));
@@ -194,16 +230,16 @@ class SimpleXLSXGen
 '    <numFmt numFmtId="167" formatCode="#,##0.00"/>' . "\n" .
 '  </numFmts>' . "\n" .
 '  <fonts count="4">' . "\n" .
-'    <font><name val="Segoe UI"/><sz val="10"/><color rgb="FF1F2937"/></font>' . "\n" . // 0 regular
-'    <font><b/><name val="Segoe UI"/><sz val="13"/><color rgb="FF35C029"/></font>' . "\n" . // 1 title neon
-'    <font><b/><name val="Segoe UI"/><sz val="10"/><color rgb="FF111827"/></font>' . "\n" . // 2 bold
-'    <font><b/><name val="Segoe UI"/><sz val="10"/><color rgb="FFFFFFFF"/></font>' . "\n" . // 3 header white
+'    <font><name val="Segoe UI"/><sz val="10"/><color rgb="FF1F2937"/></font>' . "\n" .
+'    <font><b/><name val="Segoe UI"/><sz val="13"/><color rgb="FF35C029"/></font>' . "\n" .
+'    <font><b/><name val="Segoe UI"/><sz val="10"/><color rgb="FF111827"/></font>' . "\n" .
+'    <font><b/><name val="Segoe UI"/><sz val="10"/><color rgb="FFFFFFFF"/></font>' . "\n" .
 '  </fonts>' . "\n" .
 '  <fills count="4">' . "\n" .
 '    <fill><patternFill patternType="none"/></fill>' . "\n" .
 '    <fill><patternFill patternType="gray125"/></fill>' . "\n" .
-'    <fill><patternFill patternType="solid"><fgColor rgb="FF1A3822"/></patternFill></fill>' . "\n" . // 2 dark green header
-'    <fill><patternFill patternType="solid"><fgColor rgb="FFE5F5E0"/></patternFill></fill>' . "\n" . // 3 kpi light green
+'    <fill><patternFill patternType="solid"><fgColor rgb="FF1A3822"/></patternFill></fill>' . "\n" .
+'    <fill><patternFill patternType="solid"><fgColor rgb="FFE5F5E0"/></patternFill></fill>' . "\n" .
 '  </fills>' . "\n" .
 '  <borders count="2">' . "\n" .
 '    <border><left/><right/><top/><bottom/><diagonal/></border>' . "\n" .
@@ -215,23 +251,22 @@ class SimpleXLSXGen
 '    </border>' . "\n" .
 '  </borders>' . "\n" .
 '  <cellXfs count="10">' . "\n" .
-'    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/>' . "\n" . // 0 regular text
-'    <xf numFmtId="0" fontId="1" fillId="0" borderId="0"/>' . "\n" . // 1 banner title
-'    <xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyBorder="1"/>' . "\n" . // 2 bold text
-'    <xf numFmtId="0" fontId="3" fillId="2" borderId="1" applyFill="1" applyBorder="1"/>' . "\n" . // 3 header table
-'    <xf numFmtId="0" fontId="2" fillId="3" borderId="1" applyFill="1" applyBorder="1"/>' . "\n" . // 4 KPI box
-'    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" . // 5 currency
-'    <xf numFmtId="165" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" . // 6 percent
-'    <xf numFmtId="166" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" . // 7 int
-'    <xf numFmtId="167" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" . // 8 number 2dec
-'    <xf numFmtId="164" fontId="2" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" . // 9 total bold currency
+'    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="0" fontId="1" fillId="0" borderId="0"/>' . "\n" .
+'    <xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="0" fontId="3" fillId="2" borderId="1" applyFill="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="0" fontId="2" fillId="3" borderId="1" applyFill="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="165" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="166" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="167" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" .
+'    <xf numFmtId="164" fontId="2" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/>' . "\n" .
 '  </cellXfs>' . "\n" .
 '</styleSheet>';
     }
 
     private function packZip(array $files): string
     {
-        // Empaquetador ZIP binario nativo en memoria (RFC 1951 / DEFLATE)
         $dataEntries = '';
         $dirEntries  = '';
         $offset      = 0;
@@ -240,7 +275,6 @@ class SimpleXLSXGen
             $uncompressedSize = strlen($content);
             $crc = crc32($content);
 
-            // Intentar compresión deflate si está disponible
             if (function_exists('gzdeflate')) {
                 $compressed = gzdeflate($content);
                 $compressionMethod = 8;
@@ -252,68 +286,62 @@ class SimpleXLSXGen
             }
 
             $nameLen = strlen($name);
-
-            // Local File Header
-            $local = pack(
-                'VvvvVVVVvv',
-                0x04034b50, // Firma PK\x03\x04
-                20,         // Versión necesaria (2.0)
-                0,          // Banderas de propósito general
+            $localHeader = pack(
+                'VvvvVVVvv',
+                0x04034b50,
+                20,
+                0,
                 $compressionMethod,
-                0x4821,     // Hora DOS (10:00:00)
-                0x5729,     // Fecha DOS (2025-09-09)
+                0,
                 $crc,
                 $compressedSize,
                 $uncompressedSize,
                 $nameLen,
-                0           // Extra length
-            ) . $name . $compressed;
-
-            $dataEntries .= $local;
-
-            // Central Directory File Header
-            $dir = pack(
-                'VvvvvVVVVvvvvvVV',
-                0x02014b50, // Firma PK\x01\x02
-                20,         // Versión hecha por
-                20,         // Versión necesaria
-                0,          // Banderas
-                $compressionMethod,
-                0x4821,     // Hora DOS
-                0x5729,     // Fecha DOS
-                $crc,
-                $compressedSize,
-                $uncompressedSize,
-                $nameLen,
-                0,          // Extra length
-                0,          // Comentario length
-                0,          // Disk start
-                0,          // Atributos internos
-                32,         // Atributos externos
-                $offset     // Offset del local header
+                0
             ) . $name;
 
-            $dirEntries .= $dir;
-            $offset += strlen($local);
+            $dataEntries .= $localHeader . $compressed;
+
+            $dirHeader = pack(
+                'VvvvvVVVvvvvvVV',
+                0x02014b50,
+                20,
+                20,
+                0,
+                $compressionMethod,
+                0,
+                $crc,
+                $compressedSize,
+                $uncompressedSize,
+                $nameLen,
+                0,
+                0,
+                0,
+                0,
+                0,
+                $offset
+            ) . $name;
+
+            $dirEntries .= $dirHeader;
+            $offset = strlen($dataEntries);
         }
 
-        $centralDirSize = strlen($dirEntries);
-        $totalEntries   = count($files);
+        $dirSize = strlen($dirEntries);
+        $totalFiles = count($files);
 
-        // End of Central Directory Record
-        $eocd = pack(
+        $endRecord = pack(
             'VvvvvVVv',
-            0x06054b50,     // Firma PK\x05\x06
-            0,              // Disk number
-            0,              // Disk with central dir
-            $totalEntries,  // Total entries on disk
-            $totalEntries,  // Total entries
-            $centralDirSize,// Central dir size
-            $offset,        // Offset of central dir
-            0               // Comment length
+            0x06054b50,
+            0,
+            0,
+            $totalFiles,
+            $totalFiles,
+            $dirSize,
+            $offset,
+            0
         );
 
-        return $dataEntries . $dirEntries . $eocd;
+        return $dataEntries . $dirEntries . $endRecord;
     }
 
     public function output(): string
@@ -327,12 +355,12 @@ class SimpleXLSXGen
 '  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' . "\n" .
 '</Types>';
 
-        $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+        $packageRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . "\n" .
 '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' . "\n" .
 '</Relationships>';
 
-        $wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+        $workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . "\n" .
 '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' . "\n" .
 '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' . "\n" .
@@ -347,29 +375,44 @@ class SimpleXLSXGen
 
         $files = [
             '[Content_Types].xml'        => $contentTypes,
-            '_rels/.rels'                => $rels,
-            'xl/_rels/workbook.xml.rels' => $wbRels,
+            '_rels/.rels'                => $packageRels,
+            'xl/_rels/workbook.xml.rels' => $workbookRels,
             'xl/workbook.xml'            => $workbook,
             'xl/styles.xml'              => $this->buildStylesXml(),
             'xl/worksheets/sheet1.xml'   => $this->buildSheetXml(),
         ];
 
+        if (class_exists('ZipArchive')) {
+            $tmpFile = tempnam(sys_get_temp_dir(), 'xlsx_');
+            $zip = new ZipArchive();
+            if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+                foreach ($files as $name => $content) {
+                    $zip->addFromString($name, $content);
+                }
+                $zip->close();
+                $data = file_get_contents($tmpFile);
+                @unlink($tmpFile);
+                return $data ?: '';
+            }
+        }
+
         return $this->packZip($files);
     }
 
-    public function download(string $filename): void
+    public function download(string $filename = 'reporte.xlsx'): void
     {
-        $xlsx = $this->output();
-        if (ob_get_length()) {
-            ob_clean();
+        $bin = $this->output();
+        if (headers_sent()) {
+            echo $bin;
+            exit;
         }
+
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . rawurlencode($filename) . '"');
-        header('Content-Length: ' . strlen($xlsx));
+        header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
+        header('Content-Length: ' . strlen($bin));
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
-        echo $xlsx;
+        echo $bin;
         exit;
     }
 }
-

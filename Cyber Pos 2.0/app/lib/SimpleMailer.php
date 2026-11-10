@@ -4,7 +4,7 @@ declare(strict_types=1);
 /**
  * CyberPOS 2.0 - SimpleMailer
  * Cliente SMTP ligero en PHP puro usando sockets de red (stream_socket_client).
- * Permite el envío de reportes gerenciales con cuerpo HTML y adjunto PDF.
+ * Permite el envío de reportes gerenciales con cuerpo HTML y adjunto binario (.pdf o .xlsx).
  */
 class SimpleMailer
 {
@@ -50,7 +50,7 @@ class SimpleMailer
     }
 
     /**
-     * Envía un correo con cuerpo HTML y adjunto binario PDF opcional.
+     * Envía un correo con cuerpo HTML y adjunto binario (.pdf o .xlsx).
      */
     public function send(
         string $toEmail,
@@ -63,7 +63,6 @@ class SimpleMailer
             return ['success' => false, 'error' => 'Dirección de correo destinatario inválida: ' . $toEmail];
         }
 
-        // Si no hay host o credenciales mínimas configuradas
         if ($this->host === '') {
             return ['success' => false, 'error' => 'Servidor SMTP no configurado. Verifica el host y credenciales.'];
         }
@@ -110,7 +109,7 @@ class SimpleMailer
                 $this->sendCommand($socket, "EHLO {$hostname}", [250]);
             }
 
-            // Autenticación AUTH LOGIN si se proporcionaron credenciales
+            // Autenticación AUTH LOGIN si se suministraron credenciales
             if ($this->username !== '' && $this->password !== '') {
                 $this->sendCommand($socket, 'AUTH LOGIN', [334]);
                 $this->sendCommand($socket, base64_encode($this->username), [334]);
@@ -123,7 +122,13 @@ class SimpleMailer
             $this->sendCommand($socket, "RCPT TO:<{$toEmail}>", [250, 251]);
             $this->sendCommand($socket, 'DATA', [354]);
 
-            // Construir mensaje MIME
+            // Determinar MIME type del adjunto
+            $isXlsx = (substr(strtolower($attachmentName), -5) === '.xlsx');
+            $mimeType = $isXlsx
+                ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                : 'application/pdf';
+
+            // Construir mensaje MIME multipart
             $boundary = '=_CyberPOS_' . md5(uniqid((string) mt_rand(), true));
             $subjectB64 = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
@@ -140,10 +145,10 @@ class SimpleMailer
             $body .= "Content-Transfer-Encoding: base64\r\n\r\n";
             $body .= chunk_split(base64_encode($htmlBody)) . "\r\n";
 
-            // Parte Adjunto PDF si existe
+            // Parte Adjunto si existe
             if ($attachmentData !== null && $attachmentData !== '') {
                 $body .= "--{$boundary}\r\n";
-                $body .= "Content-Type: application/pdf; name=\"{$attachmentName}\"\r\n";
+                $body .= "Content-Type: {$mimeType}; name=\"{$attachmentName}\"\r\n";
                 $body .= "Content-Transfer-Encoding: base64\r\n";
                 $body .= "Content-Disposition: attachment; filename=\"{$attachmentName}\"\r\n\r\n";
                 $body .= chunk_split(base64_encode($attachmentData)) . "\r\n";
@@ -175,4 +180,3 @@ class SimpleMailer
         }
     }
 }
-
