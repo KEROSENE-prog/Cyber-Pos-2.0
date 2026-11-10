@@ -96,11 +96,28 @@ class Solicitud extends Model
 
                 if ($sol['equipo_id']) {
                     $equipoModel = new Equipo();
-                    $resEquipo   = $equipoModel->agregarTiempo(
-                        (int) $sol['equipo_id'],
-                        (int) $sol['minutos'],
-                        (string) $sol['cliente_nombre']
-                    );
+                    $eq = $equipoModel->getById((int) $sol['equipo_id']);
+                    $clienteId = !empty($sol['cliente_id']) ? (int) $sol['cliente_id'] : null;
+                    $montoReal = (float) ($sol['monto'] ?? 0);
+
+                    if ($eq && in_array($eq['estado'], ['inactiva', 'finalizada'], true)) {
+                        $resEquipo = $equipoModel->iniciarConLimite(
+                            (int) $sol['equipo_id'],
+                            (int) $sol['minutos'],
+                            (string) $sol['cliente_nombre'],
+                            $clienteId,
+                            $montoReal
+                        );
+                    } else {
+                        $resEquipo = $equipoModel->agregarTiempo(
+                            (int) $sol['equipo_id'],
+                            (int) $sol['minutos'],
+                            (string) $sol['cliente_nombre'],
+                            $clienteId,
+                            $montoReal
+                        );
+                    }
+
                     if (!$resEquipo['success']) {
                         throw new \RuntimeException($resEquipo['error']);
                     }

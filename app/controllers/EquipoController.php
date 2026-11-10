@@ -118,6 +118,9 @@ class EquipoController extends Controller
                 $this->fail('El nombre del cliente no puede exceder los 120 caracteres.', 400);
             }
 
+            $clienteId     = isset($body['cliente_id']) && is_numeric($body['cliente_id']) ? (int) $body['cliente_id'] : null;
+            $montoOverride = isset($body['monto']) && is_numeric($body['monto']) ? (float) $body['monto'] : null;
+
             $model = new Equipo();
 
             if ($accion === 'apagar' || $accion === 'reiniciar') {
@@ -127,12 +130,12 @@ class EquipoController extends Controller
             } elseif ($accion === 'agregar') {
                 $eq = $model->getById($id);
                 if ($eq && in_array($eq['estado'], ['activa', 'finalizada'], true)) {
-                    $res = $model->agregarTiempo($id, $min, $cliente);
+                    $res = $model->agregarTiempo($id, $min, $cliente, $clienteId, $montoOverride);
                 } else {
-                    $res = $model->iniciarConLimite($id, $min, $cliente);
+                    $res = $model->iniciarConLimite($id, $min, $cliente, $clienteId, $montoOverride);
                 }
             } else {
-                $res = $model->iniciarConLimite($id, $min, $cliente);
+                $res = $model->iniciarConLimite($id, $min, $cliente, $clienteId, $montoOverride);
             }
 
             if (!$res['success']) {

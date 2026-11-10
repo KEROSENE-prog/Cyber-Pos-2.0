@@ -42,16 +42,25 @@ CREATE TABLE `usuarios` (
 CREATE TABLE `equipos` (
   `id`                 INT AUTO_INCREMENT PRIMARY KEY,
   `nombre_equipo`      VARCHAR(100) NOT NULL,
-  `numero`             VARCHAR(10) NULL,
+  `numero`             VARCHAR(10) NOT NULL DEFAULT '00',
   `tipo`               ENUM('pc','consola') NOT NULL DEFAULT 'pc',
   `estado`             ENUM('inactiva','activa','finalizada') NOT NULL DEFAULT 'inactiva',
-  `tiempo_transcurrido` INT NOT NULL DEFAULT 0,   -- segundos acumulados (congelados)
-  `tiempo_limite`      INT NOT NULL DEFAULT 0,     -- segundos permitidos (0 = sin limite)
+  `tiempo_transcurrido` INT NOT NULL DEFAULT 0,
+  `tiempo_limite`      INT NOT NULL DEFAULT 0,
   `tarifa_por_hora`    DECIMAL(10,2) NOT NULL DEFAULT 1.50,
   `cliente`            VARCHAR(120) NULL,
-  `fecha_inicio`       DATETIME NULL,              -- inicio de la corrida activa
+  `cliente_id`         INT NULL DEFAULT NULL,
+  `fecha_inicio`       DATETIME NULL,
   `notificado`         TINYINT(1) NOT NULL DEFAULT 0,
-  `fecha_creacion`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `fecha_creacion`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_equipos_cliente`
+    FOREIGN KEY (`cliente_id`)
+    REFERENCES `usuarios` (`id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  INDEX `idx_equipos_estado` (`estado`),
+  INDEX `idx_equipos_tipo` (`tipo`),
+  INDEX `idx_equipos_cliente` (`cliente_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
@@ -78,7 +87,7 @@ CREATE TABLE `sesiones_uso` (
   `cliente`             VARCHAR(120) NULL,
   `segundos_alquilados` INT NOT NULL DEFAULT 0,
   `monto_cobrado`       DECIMAL(10,2) NOT NULL DEFAULT 0,
-  `tipo_registro`       ENUM('alquiler_tiempo','venta_snack') NOT NULL DEFAULT 'venta_snack',
+  `tipo_registro`       ENUM('alquiler_tiempo','venta_snack') NOT NULL,
   `detalle`             TEXT NULL,
   `fecha_registro`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `fk_sesion_equipo` FOREIGN KEY (`equipo_id`)
@@ -141,36 +150,31 @@ INSERT INTO `usuarios` (`id`,`nombre_completo`,`email`,`password`,`rol`,`avatar_
 (2,'Kelvin Nieto','kelvin@laneros.com','$2y$10$EK32893gyQJDV1lUtMyedOPHy30.AdKPZH3dk1M5mx4s3bZ0sTRQ.','administrador','','2026-10-01 10:00:00'),
 (3,'Cliente Gamer Demo','cliente@laneros.com','$2y$10$xR/ncVAi7Y197PU4r7dDYuuZxkPILz49EDKCYdS1jNh1xW8VRRoSW','cliente','','2026-10-01 10:00:00');
 
-INSERT INTO `equipos` (`id`,`nombre_equipo`,`numero`,`tipo`,`estado`,`tiempo_transcurrido`,`tiempo_limite`,`tarifa_por_hora`,`cliente`,`notificado`) VALUES
-(1,'PC 01','01','pc','inactiva',0,0,1.50,'',0),
-(2,'PC 02','02','pc','inactiva',0,0,1.50,'',0),
-(3,'PC 03','03','pc','inactiva',0,0,1.50,'',0),
-(4,'PC 04','04','pc','inactiva',0,0,1.50,'',0),
-(5,'PC 05','05','pc','inactiva',0,0,1.50,'',0),
-(6,'PC 06','06','pc','inactiva',0,0,1.50,'',0),
-(7,'Consola 01','07','consola','inactiva',0,0,2.00,'',0),
-(8,'Consola 02','08','consola','inactiva',0,0,2.00,'',0),
-(9,'Consola 03','09','consola','inactiva',0,0,2.00,'',0),
-(10,'Consola 04','10','consola','inactiva',0,0,2.00,'',0);
+INSERT INTO `equipos` (`id`,`nombre_equipo`,`numero`,`tipo`,`estado`,`tiempo_transcurrido`,`tiempo_limite`,`tarifa_por_hora`,`cliente`,`cliente_id`,`notificado`) VALUES
+(1,'PC 01','01','pc','inactiva',0,0,1.50,'',NULL,0),
+(2,'PC 02','02','pc','inactiva',0,0,1.50,'',NULL,0),
+(3,'PC 03','03','pc','inactiva',0,0,1.50,'',NULL,0),
+(4,'PC 04','04','pc','inactiva',0,0,1.50,'',NULL,0),
+(5,'PC 05','05','pc','inactiva',0,0,1.50,'',NULL,0),
+(6,'PC 06','06','pc','inactiva',0,0,1.50,'',NULL,0),
+(7,'PlayStation 5 - VIP 01','07','consola','activa',0,7200,2.50,'Cliente Gamer Demo',3,0),
+(8,'PlayStation 5 - VIP 02','08','consola','inactiva',0,0,2.50,'',NULL,0),
+(9,'PlayStation 5 - Arena 03','09','consola','inactiva',0,0,2.00,'',NULL,0),
+(10,'PlayStation 5 - Arena 04','10','consola','inactiva',0,0,2.00,'',NULL,0);
 
-INSERT INTO `productos` (`id`,`nombre`,`precio`,`stock`,`url_imagen`,`categoria`,`origen`,`fecha_creacion`) VALUES
-(1,'Monster Energy','2.50',24,'https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=500&q=80','bebidas','snacks','2026-10-01 10:00:00'),
-(2,'Lays Papas','1.50',15,'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&q=80','comida','snacks','2026-10-01 10:00:00'),
-(3,'Snickers','1.00',30,'https://images.unsplash.com/photo-1570145820259-b5b80c5c8bd6?w=500&q=80','comida','snacks','2026-10-01 10:00:00'),
-(4,'Coca Cola 500ml','1.75',20,'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=500&q=80','bebidas','snacks','2026-10-01 10:00:00'),
-(5,'Doritos Mega Queso','1.80',18,'https://images.unsplash.com/photo-1600952841320-db92ec4047ca?w=500&q=80','comida','snacks','2026-10-01 10:00:00'),
-(6,'Agua Mineral 600ml','1.00',45,'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=500&q=80','bebidas','snacks','2026-10-01 10:00:00'),
-(7,'Oreo','1.25',35,'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80','comida','snacks','2026-10-01 10:00:00'),
-(8,'Hamburguesa Doble Gamer','4.50',12,'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80','comida','snacks','2026-10-01 10:00:00');
+INSERT INTO `productos` (`id`,`nombre`,`precio`,`stock`,`categoria`,`origen`) VALUES
+(1,'Monster Energy Ultra White (473ml)',2.50,24,'bebidas','snacks'),
+(2,'Red Bull Energy Drink (250ml)',2.75,20,'bebidas','snacks'),
+(3,'Coca-Cola Sabor Original (500ml)',1.75,35,'bebidas','snacks'),
+(4,'Pepsi Black Zero Azúcar (500ml)',1.50,28,'bebidas','snacks'),
+(5,'Agua Mineral Minalba (600ml)',1.00,50,'bebidas','snacks'),
+(6,'Doritos Mega Queso (120g)',1.80,26,'comida','snacks'),
+(7,'Papas Lays Clásicas (115g)',1.50,22,'comida','snacks'),
+(8,'Chocolate Snickers Bar (52g)',1.00,40,'comida','snacks'),
+(9,'Galletas Oreo Original (117g)',1.25,35,'comida','snacks'),
+(10,'Sandwich Tostado Jamón y Queso Gamer',3.00,16,'comida','personalizados'),
+(11,'Hamburguesa Laneros Doble Carne',4.50,14,'comida','personalizados'),
+(12,'Servicio Impresión B/N (Hoja Carta)',0.20,500,'servicios','personalizados');
 
-INSERT INTO `sesiones_uso` (`equipo_id`,`equipo_nombre`,`cliente`,`segundos_alquilados`,`monto_cobrado`,`tipo_registro`,`fecha_registro`) VALUES
-(1,'PC 01','Kelvin',7200,3.00,'alquiler_tiempo',NOW()),
-(3,'PC 03','Carlos',10800,4.50,'alquiler_tiempo',NOW()),
-(7,'Consola 01','Andres',7200,4.00,'alquiler_tiempo',NOW()),
-(NULL,'Venta Directa','Publico',0,15.00,'venta_snack',NOW()),
-(NULL,'Venta Directa','Publico',0,423.50,'venta_snack',NOW());
-
-INSERT INTO `configuracion`
-  (`id`,`tasa_bcv`,`tasa_manual`,`nombre_cyber`,`precio_hora_pc`,`precio_hora_consola`,`ultima_actualizacion_tasa`,`theme_color`,`avatar_url`)
-VALUES
-  (1,36.85,0,'CyberPOS Laneros Gamer',1.50,2.00,NOW(),'#35c029','');
+INSERT INTO `configuracion` (`id`,`tasa_bcv`,`tasa_manual`,`nombre_cyber`,`precio_hora_pc`,`precio_hora_consola`,`theme_color`) VALUES
+(1,36.85,0,'CyberPOS Laneros Gamer',1.50,2.00,'#35c029');

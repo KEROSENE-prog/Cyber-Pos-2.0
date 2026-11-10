@@ -41,18 +41,25 @@ CREATE TABLE `usuarios` (
 CREATE TABLE `equipos` (
   `id`                  INT AUTO_INCREMENT PRIMARY KEY,
   `nombre_equipo`       VARCHAR(100) NOT NULL,
-  `numero`              VARCHAR(10) NULL,
+  `numero`              VARCHAR(10) NOT NULL DEFAULT '00',
   `tipo`                ENUM('pc', 'consola') NOT NULL DEFAULT 'pc',
   `estado`              ENUM('inactiva', 'activa', 'finalizada') NOT NULL DEFAULT 'inactiva',
   `tiempo_transcurrido` INT NOT NULL DEFAULT 0,
   `tiempo_limite`       INT NOT NULL DEFAULT 0,
   `tarifa_por_hora`     DECIMAL(10,2) NOT NULL DEFAULT 1.50,
   `cliente`             VARCHAR(120) NULL,
+  `cliente_id`          INT NULL DEFAULT NULL,
   `fecha_inicio`        DATETIME NULL,
   `notificado`          TINYINT(1) NOT NULL DEFAULT 0,
   `fecha_creacion`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_equipos_cliente`
+    FOREIGN KEY (`cliente_id`)
+    REFERENCES `usuarios` (`id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
   INDEX `idx_equipos_estado` (`estado`),
-  INDEX `idx_equipos_tipo` (`tipo`)
+  INDEX `idx_equipos_tipo` (`tipo`),
+  INDEX `idx_equipos_cliente` (`cliente_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Productos de la tienda (snacks, bebidas y comidas)
@@ -78,7 +85,7 @@ CREATE TABLE `sesiones_uso` (
   `cliente`             VARCHAR(120) NULL,
   `segundos_alquilados` INT NOT NULL DEFAULT 0,
   `monto_cobrado`       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  `tipo_registro`       ENUM('alquiler_tiempo', 'venta_snack') NOT NULL DEFAULT 'venta_snack',
+  `tipo_registro`       ENUM('alquiler_tiempo', 'venta_snack') NOT NULL,
   `detalle`             TEXT NULL,
   `fecha_registro`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `fk_sesiones_equipo`
@@ -148,8 +155,3 @@ CREATE TABLE `configuracion` (
   `theme_color`               VARCHAR(20) NOT NULL DEFAULT '#35c029',
   `avatar_url`                TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Reactivamos las llaves foraneas
-SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
-SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
-SET SQL_MODE=@OLD_SQL_MODE;

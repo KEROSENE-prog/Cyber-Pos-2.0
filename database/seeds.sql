@@ -21,34 +21,35 @@ TRUNCATE TABLE `configuracion`;
 --
 -- Admin:        admin@laneros.com   | Clave: admin123    (rol: administrador)
 -- Operador:     operador@laneros.com| Clave: operador123 (rol: operador)
--- Cajero Turno: cajero@laneros.com  | Clave: cajero123   (rol: administrador)
--- Cliente Demo: cliente@laneros.com | Clave: cliente123  (rol: cliente)
--- Kelvin Gamer: kelvin@laneros.com  | Clave: admin123    (rol: cliente)
+-- Cliente Demo: cliente@laneros.com | Clave: cliente123  (rol: cliente, id: 3)
+-- Cajero Turno: cajero@laneros.com  | Clave: cajero123   (rol: administrador, id: 4)
+-- Kelvin Gamer: kelvin@laneros.com  | Clave: admin123    (rol: cliente, id: 5)
 --
 -- Los hashes fueron creados con password_hash(PASSWORD_BCRYPT) de PHP
 -- -----------------------------------------------------------------------------
 INSERT INTO `usuarios` (`id`, `nombre_completo`, `email`, `password`, `rol`, `avatar_url`, `token`, `token_expira`, `fecha_creacion`) VALUES
 (1, 'Administrador Laneros', 'admin@laneros.com', '$2y$10$EK32893gyQJDV1lUtMyedOPHy30.AdKPZH3dk1M5mx4s3bZ0sTRQ.', 'administrador', '', NULL, NULL, '2026-10-01 10:00:00'),
 (2, 'Carlos Mendoza (Operador)', 'operador@laneros.com', '$2y$10$X3obB6j4BGQl1p4yifCUkeHwTtxlk3QsVRd8RXviFktK1/Psm8TCW', 'operador', '', NULL, NULL, '2026-10-01 10:00:00'),
-(3, 'Cajero de Turno POS', 'cajero@laneros.com', '$2y$10$ZvPACxt3vER00nRbDNU0SuhFMj.x8pHWibY0qmcvItwBZQEeDlrK2', 'administrador', '', NULL, NULL, '2026-10-01 10:00:00'),
-(4, 'Cliente Gamer Demo', 'cliente@laneros.com', '$2y$10$xR/ncVAi7Y197PU4r7dDYuuZxkPILz49EDKCYdS1jNh1xW8VRRoSW', 'cliente', '', NULL, NULL, '2026-10-01 10:00:00'),
+(3, 'Cliente Gamer Demo', 'cliente@laneros.com', '$2y$10$xR/ncVAi7Y197PU4r7dDYuuZxkPILz49EDKCYdS1jNh1xW8VRRoSW', 'cliente', '', NULL, NULL, '2026-10-01 10:00:00'),
+(4, 'Cajero de Turno POS', 'cajero@laneros.com', '$2y$10$ZvPACxt3vER00nRbDNU0SuhFMj.x8pHWibY0qmcvItwBZQEeDlrK2', 'administrador', '', NULL, NULL, '2026-10-01 10:00:00'),
 (5, 'Kelvin Nieto', 'kelvin@laneros.com', '$2y$10$EK32893gyQJDV1lUtMyedOPHy30.AdKPZH3dk1M5mx4s3bZ0sTRQ.', 'cliente', '', NULL, NULL, '2026-10-01 10:00:00');
 
 -- -----------------------------------------------------------------------------
 -- 2. Maquinas del cyber (6 computadoras y 4 consolas PS5)
 -- Precios: $1.50 la hora de PC y $2.00 - $2.50 la hora de consola
+-- Se asigna la estación PS5 VIP 01 al Cliente Gamer Demo (id = 3)
 -- -----------------------------------------------------------------------------
-INSERT INTO `equipos` (`id`, `nombre_equipo`, `numero`, `tipo`, `estado`, `tiempo_transcurrido`, `tiempo_limite`, `tarifa_por_hora`, `cliente`, `fecha_inicio`, `notificado`, `fecha_creacion`) VALUES
-(1,  'PC 01 - Ryzen 7 RTX 4070', '01', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(2,  'PC 02 - Ryzen 7 RTX 4070', '02', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(3,  'PC 03 - Ryzen 5 RTX 3060', '03', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(4,  'PC 04 - Ryzen 5 RTX 3060', '04', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(5,  'PC 05 - Core i5 RTX 3060', '05', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(6,  'PC 06 - Core i5 RTX 3060', '06', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(7,  'PlayStation 5 - VIP 01',   '07', 'consola', 'inactiva', 0, 0, 2.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(8,  'PlayStation 5 - VIP 02',   '08', 'consola', 'inactiva', 0, 0, 2.50, '', NULL, 0, '2026-10-01 08:00:00'),
-(9,  'PlayStation 5 - Arena 03', '09', 'consola', 'inactiva', 0, 0, 2.00, '', NULL, 0, '2026-10-01 08:00:00'),
-(10, 'PlayStation 5 - Arena 04', '10', 'consola', 'inactiva', 0, 0, 2.00, '', NULL, 0, '2026-10-01 08:00:00');
+INSERT INTO `equipos` (`id`, `nombre_equipo`, `numero`, `tipo`, `estado`, `tiempo_transcurrido`, `tiempo_limite`, `tarifa_por_hora`, `cliente`, `cliente_id`, `fecha_inicio`, `notificado`, `fecha_creacion`) VALUES
+(1,  'PC 01 - Ryzen 7 RTX 4070', '01', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(2,  'PC 02 - Ryzen 7 RTX 4070', '02', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(3,  'PC 03 - Ryzen 5 RTX 3060', '03', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(4,  'PC 04 - Ryzen 5 RTX 3060', '04', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(5,  'PC 05 - Core i5 RTX 3060', '05', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(6,  'PC 06 - Core i5 RTX 3060', '06', 'pc',      'inactiva', 0, 0, 1.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(7,  'PlayStation 5 - VIP 01',   '07', 'consola', 'activa',   0, 7200, 2.50, 'Cliente Gamer Demo', 3, DATE_SUB(NOW(), INTERVAL 1 HOUR), 0, '2026-10-01 08:00:00'),
+(8,  'PlayStation 5 - VIP 02',   '08', 'consola', 'inactiva', 0, 0, 2.50, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(9,  'PlayStation 5 - Arena 03', '09', 'consola', 'inactiva', 0, 0, 2.00, '', NULL, NULL, 0, '2026-10-01 08:00:00'),
+(10, 'PlayStation 5 - Arena 04', '10', 'consola', 'inactiva', 0, 0, 2.00, '', NULL, NULL, 0, '2026-10-01 08:00:00');
 
 -- -----------------------------------------------------------------------------
 -- 3. Productos en inventario (bebidas, chucherias, comida rapida y servicios)
@@ -97,8 +98,8 @@ INSERT INTO `configuracion` (
   `avatar_url`
 ) VALUES (
   1,
-  54.20,                                      -- Tasa oficial referencial en Bs
-  0,                                          -- Sincronizacion automatica activa
+  54.20,
+  0,
   'CyberPOS Laneros Gamer - Barquisimeto',
   1.50,
   2.50,
@@ -129,7 +130,7 @@ INSERT INTO `pedidos_snacks` (`id`, `equipo_id`, `equipo_nombre`, `cliente_nombr
 -- -----------------------------------------------------------------------------
 INSERT INTO `solicitudes_tiempo` (`id`, `equipo_id`, `cliente_id`, `cliente_nombre`, `minutos`, `monto`, `estado`, `confirmado_admin`, `confirmado_cliente`, `fecha`) VALUES
 (1, 1, 5, 'Kelvin Nieto',       60, 1.50, 'completada', 1, 1, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-(2, 7, 4, 'Cliente Gamer Demo', 60, 2.50, 'pendiente',  0, 0, DATE_SUB(NOW(), INTERVAL 10 MINUTE));
+(2, 7, 3, 'Cliente Gamer Demo', 60, 2.50, 'pendiente',  0, 0, DATE_SUB(NOW(), INTERVAL 10 MINUTE));
 
 -- Restauramos las verificaciones
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;

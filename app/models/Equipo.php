@@ -10,6 +10,7 @@ class Equipo extends Model
         $e['tiempo_limite']       = (int) $e['tiempo_limite'];
         $e['tarifa_por_hora']     = (float) $e['tarifa_por_hora'];
         $e['notificado']          = (bool) $e['notificado'];
+        $e['cliente_id']          = isset($e['cliente_id']) && $e['cliente_id'] !== null ? (int) $e['cliente_id'] : null;
         return $e;
     }
 
@@ -63,6 +64,22 @@ class Equipo extends Model
         return (int) $st->fetchColumn() > 0;
     }
 
+    private function resolverClienteId(?int $clienteId, string $cliente, ?int $fallbackId = null): ?int
+    {
+        if ($clienteId !== null && $clienteId > 0) {
+            return $clienteId;
+        }
+        if ($cliente !== '' && $cliente !== 'Cliente') {
+            $st = $this->db->prepare('SELECT id FROM usuarios WHERE LOWER(nombre_completo) = LOWER(?) LIMIT 1');
+            $st->execute([$cliente]);
+            $id = $st->fetchColumn();
+            if ($id) {
+                return (int) $id;
+            }
+        }
+        return ($fallbackId !== null && $fallbackId > 0) ? $fallbackId : null;
+    }
+
     public function getAll(): array
     {
         $rows = $this->db->query('SELECT * FROM equipos ORDER BY id')->fetchAll();
@@ -110,8 +127,8 @@ class Equipo extends Model
 
         try {
             $st = $this->db->prepare(
-                'INSERT INTO equipos (nombre_equipo, tipo, tarifa_por_hora, estado, tiempo_transcurrido, tiempo_limite, cliente, notificado, fecha_creacion)
-                 VALUES (?, ?, ?, "inactiva", 0, 0, "", 0, NOW())'
+                'INSERT INTO equipos (nombre_equipo, numero, tipo, tarifa_por_hora, estado, tiempo_transcurrido, tiempo_limite, cliente, cliente_id, notificado, fecha_creacion)
+                 VALUES (?, "00", ?, ?, "inactiva", 0, 0, "", NULL, 0, NOW())'
             );
             $st->execute([$nombre, $tipo, $tarifa]);
             $id = (int) $this->db->lastInsertId();
@@ -167,6 +184,17 @@ class Equipo extends Model
             $params[] = $tarifa;
         }
 
+        if (array_key_exists('cliente', $data)) {
+            $cliente = trim(strip_tags((string) $data['cliente']));
+            $sets[]   = 'cliente = ?';
+            $params[] = $cliente;
+        }
+
+        if (array_key_exists('cliente_id', $data)) {
+            $sets[]   = 'cliente_id = ?';
+            $params[] = ($data['cliente_id'] !== null && is_numeric($data['cliente_id'])) ? (int) $data['cliente_id'] : null;
+        }
+
         if (empty($sets)) {
             return ['success' => false, 'error' => 'No hay cambios para guardar.'];
         }
@@ -176,7 +204,7 @@ class Equipo extends Model
             $this->db->prepare('UPDATE equipos SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
         } catch (\PDOException $e) {
             if ($e->getCode() === '23000') {
-                return ['success' => false, 'error' => 'Nombre de equipo duplicado.'];
+                return ['success' => false, 'error' => 'Nombre de equipo duplicado o conflicto de clave foránea.'];
             }
             throw $e;
         }
@@ -215,7 +243,7 @@ class Equipo extends Model
         $st->execute([$equipoId, $equipoNombre, $cliente, $segundos, max(0.0, round($monto, 2))]);
     }
 
-    public function iniciarConLimite(int $id, int $minutos, string $cliente = ''): array
+    public function iniciarConLimite(int $id, int $minutos, string $cliente = '', ?int $clienteId = null, ?float $montoOverride = null): array
     {
         $e = $this->raw($id);
         if (!$e) {
@@ -234,23 +262,36 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
         }
 
+        $clienteId = $this->resolverClienteId($clienteId, $cliente, isset($e['cliente_id']) ? (int) $e['cliente_id'] : null);
+
         $segundos = $minutos * 60;
         $tarifa   = (float) $e['tarifa_por_hora'];
-        $monto    = round(($minutos / 60) * $tarifa, 2);
+
+        if ($montoOverride !== null && $montoOverride > 0) {
+            $monto = round($montoOverride, 2);
+        } else {
+            $monto = round(($minutos / 60) * $tarifa, 2);
+        }
 
         // Actualizar equipo y registrar la sesión
-        $this->db->beginTransaction();
+        $startedTx = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTx = true;
+        }
         try {
             $st = $this->db->prepare(
-                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = 0, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
+                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = 0, tiempo_limite = ?, cliente = ?, cliente_id = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
             );
-            $st->execute([$segundos, $cliente, $id]);
+            $st->execute([$segundos, $cliente, $clienteId, $id]);
 
             $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
 
-            $this->db->commit();
+            if ($startedTx) {
+                $this->db->commit();
+            }
         } catch (\Throwable $ex) {
-            if ($this->db->inTransaction()) {
+            if ($startedTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             return ['success' => false, 'error' => 'Error al iniciar tiempo: ' . $ex->getMessage()];
@@ -259,7 +300,7 @@ class Equipo extends Model
         return ['success' => true, 'data' => $this->getById($id), 'monto' => $monto, 'message' => 'Tiempo iniciado.'];
     }
 
-    public function agregarTiempo(int $id, int $minutos, ?string $cliente = null): array
+    public function agregarTiempo(int $id, int $minutos, ?string $cliente = null, ?int $clienteId = null, ?float $montoOverride = null): array
     {
         $e = $this->raw($id);
         if (!$e) {
@@ -279,24 +320,44 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'El nombre del cliente no puede exceder los 120 caracteres.'];
         }
 
-        $segundos     = $minutos * 60;
-        $tarifa       = (float) $e['tarifa_por_hora'];
-        $monto        = round(($minutos / 60) * $tarifa, 2);
-        $transcurrido = $this->transcurridoActual($e);
-        $limite       = (int) $e['tiempo_limite'] + $segundos;
+        $clienteId = $this->resolverClienteId($clienteId, $cliente, isset($e['cliente_id']) ? (int) $e['cliente_id'] : null);
+
+        $segundos = $minutos * 60;
+        $tarifa   = (float) $e['tarifa_por_hora'];
+
+        if ($montoOverride !== null && $montoOverride > 0) {
+            $monto = round($montoOverride, 2);
+        } else {
+            $monto = round(($minutos / 60) * $tarifa, 2);
+        }
+
+        // Si la estación estaba inactiva o finalizada, reiniciar tiempo transcurrido en 0
+        if ($e['estado'] === 'inactiva' || $e['estado'] === 'finalizada' || (int) $e['tiempo_limite'] <= 0) {
+            $transcurrido = 0;
+            $limite       = $segundos;
+        } else {
+            $transcurrido = $this->transcurridoActual($e);
+            $limite       = (int) $e['tiempo_limite'] + $segundos;
+        }
 
         // Actualizar tiempo y registrar sesión
-        $this->db->beginTransaction();
+        $startedTx = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTx = true;
+        }
         try {
             $this->db->prepare(
-                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = ?, tiempo_limite = ?, cliente = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
-            )->execute([$transcurrido, $limite, $cliente, $id]);
+                'UPDATE equipos SET estado = "activa", tiempo_transcurrido = ?, tiempo_limite = ?, cliente = ?, cliente_id = ?, fecha_inicio = NOW(), notificado = 0 WHERE id = ?'
+            )->execute([$transcurrido, $limite, $cliente, $clienteId, $id]);
 
             $this->registrarSesion($id, $e['nombre_equipo'], $cliente, $segundos, $monto);
 
-            $this->db->commit();
+            if ($startedTx) {
+                $this->db->commit();
+            }
         } catch (\Throwable $ex) {
-            if ($this->db->inTransaction()) {
+            if ($startedTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             return ['success' => false, 'error' => 'Error al agregar tiempo: ' . $ex->getMessage()];
@@ -311,7 +372,7 @@ class Equipo extends Model
             return ['success' => false, 'error' => 'Equipo no encontrado.'];
         }
         $this->db->prepare(
-            'UPDATE equipos SET estado = "inactiva", tiempo_transcurrido = 0, tiempo_limite = 0, cliente = "", fecha_inicio = NULL, notificado = 0 WHERE id = ?'
+            'UPDATE equipos SET estado = "inactiva", tiempo_transcurrido = 0, tiempo_limite = 0, cliente = "", cliente_id = NULL, fecha_inicio = NULL, notificado = 0 WHERE id = ?'
         )->execute([$id]);
         return ['success' => true, 'data' => $this->getById($id), 'message' => 'Equipo detenido.'];
     }

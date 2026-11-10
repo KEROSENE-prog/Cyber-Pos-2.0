@@ -42,11 +42,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const equipos = await cargarEquipos();
-    const eqAsignado = equipos.find(e => e.cliente && e.cliente.toLowerCase() === (usuario.nombre_completo || '').toLowerCase()) || equipos[0];
+    // 1. Vincular primero por clave foránea numérica
+    // 2. Solo si cliente_id es nulo, comparar nombre como respaldo
+    // 3. Cero fallback a equipos[0]
+    const eqAsignado = (equipos || []).find(e =>
+      e.cliente_id !== null && e.cliente_id !== undefined && Number(e.cliente_id) === Number(usuario.id)
+    ) || (equipos || []).find(e =>
+      (e.cliente_id === null || e.cliente_id === undefined) && e.cliente && e.cliente.toLowerCase() === (usuario.nombre_completo || '').toLowerCase()
+    ) || null;
+
     if (eqAsignado) {
       miEquipoId = eqAsignado.id;
       const spanNombre = document.getElementById('equipoNombreSpan');
       if (spanNombre) spanNombre.textContent = eqAsignado.nombre_equipo;
+    } else {
+      miEquipoId = null;
+      const spanNombre = document.getElementById('equipoNombreSpan');
+      if (spanNombre) spanNombre.textContent = 'Sin estación asignada';
+      const badge = document.getElementById('badgeEstado');
+      if (badge) {
+        badge.className = 'status-badge inactive';
+        badge.textContent = 'Sin Estación';
+      }
+      const btnSolicitar = document.getElementById('btnSolicitarTiempo');
+      if (btnSolicitar) {
+        btnSolicitar.disabled = true;
+        btnSolicitar.title = 'No tienes una estación asignada';
+      }
+      const btnPedir = document.getElementById('btnPedirLugar');
+      if (btnPedir) {
+        btnPedir.disabled = true;
+        btnPedir.title = 'No tienes una estación asignada';
+      }
     }
   } catch (err) {
     showToast(err.message || 'Error al cargar tu estación.', 'error');
@@ -66,13 +93,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ESTADO DEL TIEMPO
 // =========================================================================
 function pintarEstadoTiempo(equipos) {
-  if (!miEquipoId) return;
+  const badge        = document.getElementById('badgeEstado');
+  const spanNombre   = document.getElementById('equipoNombreSpan');
+  const timerDisplay = document.getElementById('clientTiempoRestante');
+  const fill         = document.getElementById('clientProgressFill');
+
+  if (!miEquipoId) {
+    if (spanNombre) spanNombre.textContent = 'Sin estación asignada';
+    if (badge) {
+      badge.className = 'status-badge inactive';
+      badge.textContent = 'Sin Estación';
+    }
+    if (timerDisplay) timerDisplay.textContent = '00:00:00';
+    if (fill) fill.style.width = '0%';
+    const btnSolicitar = document.getElementById('btnSolicitarTiempo');
+    if (btnSolicitar) btnSolicitar.disabled = true;
+    const btnPedir = document.getElementById('btnPedirLugar');
+    if (btnPedir) btnPedir.disabled = true;
+    return;
+  }
+
   const eq = (equipos || []).find(e => String(e.id) === String(miEquipoId));
   if (!eq) return;
-
-  const timerDisplay = document.getElementById('clientTiempoRestante');
-  const badge        = document.getElementById('badgeEstado');
-  const fill         = document.getElementById('clientProgressFill');
 
   const transcurrido = parseInt(eq.tiempo_transcurrido || 0, 10);
   const limite       = parseInt(eq.tiempo_limite || 0, 10);
@@ -121,7 +163,13 @@ function setupSolicitudTiempo(usuario) {
   if (!modal) return;
 
   const cerrar = () => modal.close();
-  btnAbrir?.addEventListener('click', () => modal.showModal());
+  btnAbrir?.addEventListener('click', () => {
+    if (!miEquipoId) {
+      showToast('No tienes una estación asignada para solicitar tiempo.', 'error');
+      return;
+    }
+    modal.showModal();
+  });
   btnClose?.addEventListener('click', cerrar);
   btnCancel?.addEventListener('click', cerrar);
 
@@ -149,6 +197,10 @@ function setupSolicitudTiempo(usuario) {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!miEquipoId) {
+        showToast('No tienes una estación asignada.', 'error');
+        return;
+      }
       const rawMin = (inputMin?.value || '').trim();
 
       if (rawMin === '' || isNaN(Number(rawMin)) || !Number.isInteger(Number(rawMin))) {
@@ -364,7 +416,7 @@ function renderizarCarrito() {
 
   const total = carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
   if (totalEl) totalEl.innerHTML = `$${total.toFixed(2)} <small style="display:block;color:#64748b;font-size:.75rem">Bs. ${(total * tasa).toFixed(2)}</small>`;
-  if (btnPedir) btnPedir.disabled = false;
+  if (btnPedir) btnPedir.disabled = !miEquipoId || carrito.length === 0;
 }
 
 function cambiarCantidad(idx, delta) {
@@ -396,6 +448,10 @@ function setupCarrito(usuario) {
   if (!btnPedir) return;
 
   btnPedir.addEventListener('click', async () => {
+    if (!miEquipoId) {
+      showToast('No tienes una estación asignada para enviar pedidos.', 'error');
+      return;
+    }
     if (carrito.length === 0) {
       showToast('El carrito está vacío.', 'error');
       return;
